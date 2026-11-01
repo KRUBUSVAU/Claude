@@ -55,6 +55,13 @@ const D = { x: new Float32Array(NALL), y: new Float32Array(NALL), z: new Float32
   }
 }
 const NSK = NALL - ND; // skull points (indices ND..NALL)
+// spatial grid over brain dots for neighbour queries (cell 4 mm)
+const GRID = new Map(), GCELL = 4;
+const gkey = (x, y, z) => ((Math.floor(x / GCELL) + 512) * 1024 + (Math.floor(y / GCELL) + 512)) * 1024 + (Math.floor(z / GCELL) + 512);
+for (let i = 0; i < ND; i++) { const k = gkey(D.x[i], D.y[i], D.z[i]); let l = GRID.get(k); if (!l) { l = []; GRID.set(k, l); } l.push(i); }
+function neighbours(i, radius, out) { out.length = 0; const r2 = radius * radius, x = D.x[i], y = D.y[i], z = D.z[i]; const c = Math.ceil(radius / GCELL);
+  for (let dx = -c; dx <= c; dx++) for (let dy = -c; dy <= c; dy++) for (let dz = -c; dz <= c; dz++) { const l = GRID.get(gkey(x + dx * GCELL, y + dy * GCELL, z + dz * GCELL)); if (!l) continue; for (const j of l) { if (j === i) continue; const ex = D.x[j] - x, ey = D.y[j] - y, ez = D.z[j] - z; const d2 = ex * ex + ey * ey + ez * ez; if (d2 < r2) out.push(j, d2); } }
+  return out; }
 const inner = regions.filter(r => r.small || ['thalamus', 'striatum', 'hippocampus', 'auditory', 'cingulate'].includes(r.id)).sort((a, b) => a.r - b.r);
 
 // ---------- pathways: waypoints through atlas structures, mirrored into both hemispheres ----------

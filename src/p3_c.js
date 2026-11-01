@@ -6,7 +6,7 @@ class Brain {
   constructor() {
     this.act = new Float32Array(R).fill(0.12); this.flash = new Float32Array(R); this.flashHue = new Float32Array(R).fill(-1); this.recept = new Float32Array(R);
     this.nt = { da: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 }, ne: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 }, ht: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 } };
-    this.pulses = []; this.conns = []; this.connByHash = new Map(); this.modeMix = 0.5; this.memory = 0; this.beatPulse = 0; this.spontT = 0; this.now = 0; this.undPhase = 0;
+    this.pulses = []; this.nets = new Map(); this.edgeCount = 0; this.sparks = []; this.modeMix = 0.5; this.memory = 0; this.beatPulse = 0; this.spontT = 0; this.now = 0; this.undPhase = 0;
     this.chordHue = -1; this.lastChordName = ''; this.dropT = -10; this.bpmChangeT = -10;
   }
   release(nt, amt, why, now) {
@@ -17,22 +17,33 @@ class Brain {
     if (now - p.lastSpawn < 0.11) { const last = this.pulses[this.pulses.length - 1]; if (last && last.p === p) last.i = Math.min(1, last.i + intensity * 0.5); return; }
     p.lastSpawn = now; this.pulses.push({ p, t: 0, i: intensity, speed: 110 / p.length });
   }
+  // neural nets: a recognised phrase, progression or sample grows a graph of neurons joined to their
+  // neighbours; each recurrence extends and strengthens the same net and sends a signal through it
   connect(e, now) {
-    const kinds = { melody: ['auditory', 'hippocampus', 'pfc'], chord: ['pfc', 'hippocampus', 'cingulate'], sample: ['auditory', 'auditory', 'thalamus'] };
-    const rs = (kinds[e.kind] || kinds.melody).map(id => regionById[id]);
-    let list = this.connByHash.get(e.hash);
-    if (list) { for (const c of list) { c.s = Math.min(1, c.s + 0.22); c.spark = 0; c.t = now; } return; }
-    const rng = mulberry32(fnv(e.hash)); list = [];
-    const K = e.kind === 'sample' ? 3 : 4;
-    for (let k = 0; k < K; k++) {
-      const ra = rs[k % rs.length], rb = rs[(k + 1) % rs.length];
-      const a = ra.start + Math.floor(rng() * (ra.end - ra.start)), b = rb.start + Math.floor(rng() * (rb.end - rb.start));
-      if (a === b) continue;
-      const c = { a, b, s: 0.32, spark: 0, t: now, kind: e.kind, bend: (rng() - 0.5) * 70, hash: e.hash };
-      list.push(c); this.conns.push(c);
+    const kinds = { melody: ['auditory', 'hippocampus', 'pfc', 'temporal'], phrase: ['auditory', 'hippocampus', 'pfc', 'temporal'], chord: ['pfc', 'hippocampus', 'cingulate'], sample: ['auditory', 'auditory'] };
+    const rs = (kinds[e.kind] || kinds.phrase).map(id => regionById[id]);
+    let net = this.nets.get(e.hash);
+    if (!net) {
+      net = { hash: e.hash, kind: e.kind, nodes: new Set(), depth: new Map(), edges: [], count: 0, t: now, hue: { chord: 48, sample: 305 }[e.kind] || 172 };
+      const rng = mulberry32(fnv(e.hash));
+      for (const r of rs) { const i = r.start + Math.floor(rng() * (r.end - r.start)); net.nodes.add(i); net.depth.set(i, 0); }
+      this.nets.set(e.hash, net);
     }
-    this.connByHash.set(e.hash, list);
-    if (this.conns.length > 420) { this.conns.sort((x, y) => y.s - x.s); const drop = this.conns.splice(400); for (const c of drop) { const l = this.connByHash.get(c.hash); if (l) { const i = l.indexOf(c); if (i >= 0) l.splice(i, 1); if (!l.length) this.connByHash.delete(c.hash); } } }
+    net.count++; net.t = now;
+    const rng = mulberry32(fnv(e.hash) + net.count * 7919), nb = [];
+    const G = e.kind === 'sample' ? 2 + Math.min(4, net.count) : (net.count === 1 ? 10 : 6 + Math.min(12, net.count));
+    const nodeArr = [...net.nodes];
+    for (let g = 0; g < G; g++) {
+      const n = nodeArr[Math.floor(rng() * nodeArr.length)]; neighbours(n, 7, nb); if (!nb.length) continue;
+      // candidates not yet in the net, nearest first with a little randomness
+      const cands = []; for (let k = 0; k < nb.length; k += 2) if (!net.nodes.has(nb[k])) cands.push([nb[k], nb[k + 1]]); if (!cands.length) continue;
+      cands.sort((p, q) => p[1] - q[1]); const m = cands[Math.min(cands.length - 1, Math.floor(rng() * rng() * Math.min(5, cands.length)))][0];
+      net.nodes.add(m); net.depth.set(m, (net.depth.get(n) || 0) + 1); nodeArr.push(m); net.edges.push({ a: n, b: m, s: 0.3, d: net.depth.get(m) }); this.edgeCount++;
+    }
+    for (const ed of net.edges) ed.s = Math.min(1, ed.s + 0.1);
+    // signal wave through the net, ordered by depth
+    let n = 0; for (const ed of net.edges) { if (n++ > 400) break; this.sparks.push({ ed, net, t: -ed.d * 0.11, sp: 4 }); }
+    if (this.edgeCount > 9000) { let worst = null, ws = 1e9; for (const nt of this.nets.values()) { const sc = nt.t + nt.count * 20; if (sc < ws) { ws = sc; worst = nt; } } if (worst && worst !== net) { this.edgeCount -= worst.edges.length; this.nets.delete(worst.hash); } }
   }
   update(dt, F, active, now) {
     this.now = now;
@@ -42,7 +53,8 @@ class Brain {
     nt.da.phasic *= Math.exp(-dt / 1.6); nt.ne.phasic *= Math.exp(-dt / 2.2); nt.ht.phasic *= Math.exp(-dt / 5);
     this.beatPulse *= Math.exp(-dt / 0.25); this.memory *= Math.exp(-dt / 6);
 
-    for (const e of F.events) {
+    const evs = F.events.slice(); F.events.length = 0;
+    for (const e of evs) {
       switch (e.type) {
         case 'onset':
           flash[g.motor.i] += e.strength * 0.9; flash[g.striatum.i] += e.strength * 0.5; flash[g.thalamus.i] += e.strength * 0.4; flash[g.brainstem.i] += e.strength * 0.5; this.beatPulse = Math.max(this.beatPulse, e.strength);
@@ -62,8 +74,8 @@ class Brain {
         case 'da': case 'ne': case 'ht': this.release(e.type, e.amt, e.why, now); break;
         case 'drop': this.release('da', e.amt, 'drop', now); this.release('ne', e.amt * 0.6, 'drop', now); for (const r of CORTEX) flash[r] += 0.45; this.dropT = now; break;
         case 'rep':
-          flash[g.hippocampus.i] += e.kind === 'sample' ? 0.3 : 0.7; this.memory = Math.min(1, this.memory + (e.kind === 'sample' ? 0.08 : 0.3)); this.connect(e, now);
-          if (e.kind !== 'sample') { this.release('da', 0.14, 'recognised a ' + (e.kind === 'melody' ? 'melody' : 'progression'), now); spawnPath('fornix', 0.8, now); }
+          flash[g.hippocampus.i] += e.kind === 'sample' ? 0.25 : 0.6; this.memory = Math.min(1, this.memory + (e.kind === 'sample' ? 0.06 : 0.3)); this.connect(e, now);
+          if (e.kind !== 'sample') { this.release('da', 0.14, 'recognised a ' + (e.kind === 'chord' ? 'progression' : 'phrase'), now); spawnPath('fornix', 0.8, now); }
           else if (e.count % 4 === 0) spawnPath('fornix', 0.4, now);
           break;
       }
@@ -116,8 +128,9 @@ class Brain {
         this.pulses.splice(i, 1);
       }
     }
-    // connections
-    const cd = Math.exp(-dt / 90);
-    for (let i = this.conns.length - 1; i >= 0; i--) { const c = this.conns[i]; c.s *= cd; if (c.spark >= 0) { c.spark += dt / 0.7; if (c.spark > 1) c.spark = -1; } if (c.s < 0.05) { this.conns.splice(i, 1); const l = this.connByHash.get(c.hash); if (l) { const j = l.indexOf(c); if (j >= 0) l.splice(j, 1); if (!l.length) this.connByHash.delete(c.hash); } } }
+    // nets fade slowly unless reinforced; sparks travel their edges
+    const cd = Math.exp(-dt / 160);
+    for (const net of this.nets.values()) { for (let i = net.edges.length - 1; i >= 0; i--) { const ed = net.edges[i]; ed.s *= cd; if (ed.s < 0.04) { net.edges.splice(i, 1); this.edgeCount--; } } if (!net.edges.length && now - net.t > 30) this.nets.delete(net.hash); }
+    for (let i = this.sparks.length - 1; i >= 0; i--) { const s = this.sparks[i]; s.t += dt * s.sp; if (s.t > 1) this.sparks.splice(i, 1); }
   }
 }

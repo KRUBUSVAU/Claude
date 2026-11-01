@@ -7,6 +7,9 @@ function ensureContext() {
   const an = ac.createAnalyser(); an.fftSize = 4096; an.smoothingTimeConstant = 0; an.minDecibels = -110; an.maxDecibels = -10;
   const monitor = ac.createGain(); monitor.gain.value = audio.volume; an.connect(monitor); monitor.connect(ac.destination);
   audio.ac = ac; audio.an = an; audio.monitor = monitor; audio.F = new Features(ac, an);
+  // analysis runs on its own 50 Hz clock so onsets and tempo do not depend on the frame rate
+  let lastA = performance.now() / 1000;
+  audio.timer = setInterval(() => { const t = performance.now() / 1000; let dt = t - lastA; lastA = t; if (dt > 0.1) dt = 0.1; audio.F.update(t, dt, isActive()); }, 20);
 }
 function stopSource(keepTrack) {
   if (audio.node) { try { audio.node.disconnect(); } catch (e) { } }
@@ -260,6 +263,9 @@ function hideTip() { tip.hidden = true; tipRegion = null; }
 const VIEWS = { left: [-Math.PI / 2, 0.05], right: [Math.PI / 2, 0.05], front: [0, 0.05], top: [-0.001, 1.44], back: [Math.PI, 0.05] };
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { const v = VIEWS[b.dataset.view]; if (v) flyTo([0, -14, 4], view.homeDist, v[0], v[1]); else goHome(); }));
 $('btnSpin').addEventListener('click', () => { view.autoSpin = !view.autoSpin; $('btnSpin').setAttribute('aria-pressed', String(view.autoSpin)); view.lastInteract = -100; });
+try { const b = parseFloat(localStorage.getItem('nr.brightness')); if (!isNaN(b)) view.exposure = clamp(b, 0.2, 1.6); } catch (err) { }
+$('brightness').value = view.exposure;
+$('brightness').addEventListener('input', ev => { view.exposure = parseFloat(ev.target.value); try { localStorage.setItem('nr.brightness', String(view.exposure)); } catch (err) { } });
 $('btnSkull').addEventListener('click', () => { view.showSkull = !view.showSkull; $('btnSkull').setAttribute('aria-pressed', String(view.showSkull)); });
 window.addEventListener('keydown', e => {
   if (e.target && /INPUT|BUTTON|LABEL|SELECT|TEXTAREA/.test(e.target.tagName) && e.key !== 'Escape' && e.key !== ' ') return;
@@ -283,11 +289,11 @@ function updateReadout(now, F, active) {
   $('fLevel').style.width = (active ? Math.round(F.loudN * 100) : 0) + '%';
   $('mDa').style.width = Math.round(nt.da.level * 100) + '%'; $('mNe').style.width = Math.round(nt.ne.level * 100) + '%'; $('mHt').style.width = Math.round(nt.ht.level * 100) + '%';
   $('mDaWhy').textContent = now - nt.da.whyT < 3 ? nt.da.why : ''; $('mNeWhy').textContent = now - nt.ne.whyT < 3 ? nt.ne.why : ''; $('mHtWhy').textContent = now - nt.ht.whyT < 3 ? nt.ht.why : '';
-  $('fRepMel').textContent = F.repCounts.melody; $('fRepChord').textContent = F.repCounts.chord; $('fRepSample').textContent = F.repCounts.sample; $('fConn').textContent = brain.conns.length;
+  $('fRepMel').textContent = F.repCounts.melody + F.repCounts.phrase; $('fRepChord').textContent = F.repCounts.chord; $('fRepSample').textContent = F.repCounts.sample; $('fConn').textContent = brain.edgeCount;
 }
 
 // ---------- main loop ----------
-const idleF = { spec: new Float32Array(64), bands: new Float32Array(8), loudN: 0, bpm: 0, bpmConf: 0, modeMix: 0.5, tension: 0, onsetDensity: 0, centroidS: 0, events: [], key: { root: -1 }, chord: { root: -1 }, pitch: { midi: -1 }, repCounts: { melody: 0, chord: 0, sample: 0 }, chordEnergy: 0, bpmChangedAt: -10 };
+const idleF = { spec: new Float32Array(64), bands: new Float32Array(8), loudN: 0, bpm: 0, bpmConf: 0, modeMix: 0.5, tension: 0, onsetDensity: 0, centroidS: 0, events: [], key: { root: -1 }, chord: { root: -1 }, pitch: { midi: -1 }, repCounts: { melody: 0, phrase: 0, chord: 0, sample: 0 }, chordEnergy: 0, bpmChangedAt: -10 };
 let last = performance.now() / 1000, frameEMA = 0.016, perfT = 0;
 function frame(ms) {
   const now = ms / 1000; let dt = now - last; last = now; if (dt > 0.06) dt = 0.06; if (dt <= 0) dt = 0.001;
@@ -299,7 +305,6 @@ function frame(ms) {
     if (Math.abs(dy) < 0.002 && Math.abs(view.tdist - view.dist) < 0.1 && Math.abs(view.ttx - view.tx) + Math.abs(view.tty - view.ty) + Math.abs(view.ttz - view.tz) < 0.1) { view.yaw = view.tyaw; view.pitch = view.tpitch; view.dist = view.tdist; view.tx = view.ttx; view.ty = view.tty; view.tz = view.ttz; view.animating = false; }
   } else if (view.autoSpin && !REDUCED && now - view.lastInteract > 6 && view.dist > 120) view.yaw += dt * 0.07;
   const active = isActive(); const F = audio.F || idleF;
-  if (audio.F) audio.F.update(now, dt, active);
   brain.update(dt, F, active, now);
   render(now, dt, F, active);
   updateReadout(now, F, active);

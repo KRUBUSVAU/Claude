@@ -58,9 +58,9 @@ function screenRay(sx, sy) { // world-space ray from pointer
 }
 function flyTo(target, dist, yaw, pitch) { view.touched = true; view.lastInteract = performance.now() / 1000; view.ttx = target[0]; view.tty = target[1]; view.ttz = target[2]; view.tdist = clamp(dist, 14, 900); if (yaw !== undefined) view.tyaw = yaw; else view.tyaw = view.yaw; if (pitch !== undefined) view.tpitch = pitch; else view.tpitch = view.pitch; view.animating = true; }
 function goHome() { flyTo(HOME.target, view.homeDist, HOME.yaw, HOME.pitch); }
-function flyToRegion(r, hitCenter) { const c = hitCenter || r.c; flyTo(c, Math.max(26, r.r * (r.small ? 3.2 : 2.1))); }
-const zf = () => clamp(Math.pow(view.dist / 330, 0.65), 0.15, 1.15);
-const focusAmt = () => smoothstep(95, 50, view.dist);
+function flyToRegion(r, hitCenter) { const c = hitCenter || (r.cl || r.c); flyTo(c, r.small ? 30 : Math.min(60, Math.max(34, r.r * 1.1))); }
+const zf = () => clamp(Math.pow(view.dist / 330, 0.8), 0.08, 1.15);
+view.exposure = 0.8;
 
 // --- colour helpers for the overlay
 const colorCache = new Map();
@@ -69,7 +69,8 @@ const rgbTmp = [0, 0, 0];
 function hslRgb(h, s, l) { h = ((h % 360) + 360) % 360 / 360; s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100; const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q; for (let k = 0; k < 3; k++) { let t = h + (1 - k) / 3; if (t < 0) t += 1; if (t > 1) t -= 1; rgbTmp[k] = t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; } return rgbTmp; }
 
 // ---- WebGL
-let gl = null, progCloud = null, progRaw = null, bufCloud = null, bufRaw = null, LC = null, LR = null, glMaxPt = 64;
+let gl = null, progCloud = null, progRaw = null, progLine = null, bufCloud = null, bufRaw = null, bufLine = null, LC = null, LR = null, LL = null, glMaxPt = 64;
+const lineData = new Float32Array(10000 * 2 * 7);
 const NREG = regions.length, REGA = new Float32Array(20 * 4), REGB = new Float32Array(20 * 4), SPEC = new Float32Array(64);
 const RAWCAP = paths.reduce((s, p) => s + p.pts.length, 0) + 40000;
 const rawDisk = new Float32Array(RAWCAP * 8), rawBloom = new Float32Array(RAWCAP * 8); let nDisk = 0, nBloom = 0;
@@ -78,7 +79,7 @@ const VS_COMMON = 'precision highp float;uniform mat4 uVP;uniform float uPointSc
 const FS = 'precision mediump float;varying vec4 vCol;uniform float uSoft;void main(){vec2 d=gl_PointCoord-0.5;float r=length(d)*2.0;float a=uSoft>0.5?pow(max(0.0,1.0-r),2.2):1.0-smoothstep(0.72,1.0,r);gl_FragColor=vec4(vCol.rgb*vCol.a*a,vCol.a*a);}';
 const VS_CLOUD = VS_COMMON + `
 attribute vec3 aPos;attribute vec4 aAttr;attribute float aSize;
-uniform float uTime,uUnd,uZf,uGz,uDrift,uSkullAlpha,uSkullOn,uFocus;uniform vec3 uTarget;uniform int uAud;
+uniform float uTime,uUnd,uZf,uGz,uDrift,uSkullAlpha,uSkullOn,uExposure;uniform int uAud;
 uniform vec4 uRegA[20];uniform vec4 uRegB[20];uniform vec4 uSpec[16];varying vec4 vCol;
 vec3 hsl2rgb(vec3 c){vec3 rgb=clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0);return c.z+c.y*(rgb-0.5)*(1.0-abs(2.0*c.z-1.0));}
 float specAt(int k){vec4 s=uSpec[k/4];int m=k-4*(k/4);return m==0?s.x:m==1?s.y:m==2?s.z:s.w;}
@@ -86,34 +87,38 @@ void main(){
   int reg=int(aAttr.x*255.0+0.5);
   if(reg>=200){ vec4 clip=uVP*vec4(aPos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-150.0)/600.0,0.3,1.0);
     if(uSoft>0.5||uSkullOn<0.5){gl_PointSize=0.0;vCol=vec4(0.0);return;}
-    fade*=mix(1.0,0.15,uFocus);vCol=vec4(0.45,0.62,1.0,uSkullAlpha*fade*(0.6+0.4*aAttr.y));gl_PointSize=min(uMaxPt,max(1.0,2.0*aSize*0.36*uZf*uPointScale/w));return;}
+    vCol=vec4(0.45,0.62,1.0,uSkullAlpha*uExposure*fade*(0.6+0.4*aAttr.y));gl_PointSize=min(uMaxPt,max(1.0,2.0*aSize*0.3*uZf*uPointScale/w));return;}
   vec4 A=uRegA[reg];vec4 B=uRegB[reg];
   float a0=A.x,fl=A.y,fh=A.z,bh=A.w;float tone=aAttr.y*2.0-1.0,ph=aAttr.z*6.2832,u=aAttr.w;
   float a=a0; if(reg==uAud){a+=specAt(int(u*63.0))*0.95;}
   a+=B.z*sin(uUnd*B.w+ph+u*2.5)*(0.4+0.6*a0); a+=fl*(0.65+0.35*sin(ph*3.0+uTime*9.0)); a=clamp(a,0.0,1.1);
   float hue=bh; if(fl>0.04&&fh>=0.0){float d=mod(fh-bh+540.0,360.0)-180.0;hue=bh+d*clamp(fl,0.0,1.0)*0.85;}
-  vec3 rgb=hsl2rgb(vec3(mod(hue,360.0)/360.0,clamp((B.x+8.0*a-10.0*max(0.0,tone))/100.0,0.0,1.0),min(0.86,(B.y-24.0+tone*13.0+a*30.0)/100.0)));
+  float act=smoothstep(0.0,1.0,a);
+  float sat=clamp(B.x/100.0*mix(0.22,0.95,act)-0.08*max(0.0,tone),0.0,1.0);
+  float lig=clamp((B.y-22.0+tone*9.0+act*12.0)/100.0,0.0,0.72);
+  vec3 rgb=hsl2rgb(vec3(mod(hue,360.0)/360.0,sat,lig));
   vec3 pos=aPos+uDrift*(0.3+a)*vec3(sin(uTime*0.6+ph*7.0),cos(uTime*0.45+ph*5.0),sin(uTime*0.5+ph*3.0));
-  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0);
-  float fd=length(pos-uTarget);fade*=mix(1.0,0.18,uFocus*smoothstep(22.0,55.0,fd));fade*=mix(1.0,0.45,uFocus*(1.0-smoothstep(18.0,30.0,fd)));
-  if(uSoft>0.5){float ba=(a-0.5)*0.22;if(ba<=0.0){gl_PointSize=0.0;vCol=vec4(0.0);return;}vCol=vec4(rgb,ba*fade);gl_PointSize=min(uMaxPt,2.0*aSize*0.55*(1.4+2.2*a)*uGz*uPointScale/w);}
-  else{vCol=vec4(rgb,(0.2+0.5*min(a,1.0))*fade);gl_PointSize=min(uMaxPt,max(1.2,2.0*aSize*0.4*(1.0+0.25*a)*uZf*uPointScale/w));}
+  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0)*uExposure;
+  if(uSoft>0.5){float ba=(act-0.85)*0.25;if(ba<=0.0){gl_PointSize=0.0;vCol=vec4(0.0);return;}vCol=vec4(rgb,ba*fade);gl_PointSize=min(uMaxPt,2.0*aSize*0.5*1.8*uGz*uPointScale/w);}
+  else{vCol=vec4(rgb,(0.3+0.3*act)*fade);gl_PointSize=min(uMaxPt,max(1.2,2.0*aSize*0.36*uZf*uPointScale/w));}
 }`;
+const VS_LINE = 'precision highp float;uniform mat4 uVP;attribute vec3 aPos;attribute vec4 aCol;varying vec4 vCol;void main(){gl_Position=uVP*vec4(aPos,1.0);vCol=aCol;}';
+const FS_LINE = 'precision mediump float;varying vec4 vCol;void main(){gl_FragColor=vec4(vCol.rgb*vCol.a,vCol.a);}';
 const VS_RAW = VS_COMMON + 'attribute vec3 aPos;attribute vec4 aCol;attribute float aSize;varying vec4 vCol;void main(){vec4 clip=uVP*vec4(aPos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0);vCol=vec4(aCol.rgb,aCol.a*fade);gl_PointSize=min(uMaxPt,max(1.0,2.0*aSize*uPointScale/w));}';
 function mkProg(vs, fs) { const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; }; const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
 function locs(p, names) { const o = {}; for (const n of names) o[n] = n[0] === 'a' ? gl.getAttribLocation(p, n) : gl.getUniformLocation(p, n); return o; }
 function initGL() {
   try { gl = glCanvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' }); } catch (e) { gl = null; }
   if (!gl) return;
-  try { progCloud = mkProg(VS_CLOUD, FS); progRaw = mkProg(VS_RAW, FS); } catch (e) { console.error(e); gl = null; return; }
-  LC = locs(progCloud, ['aPos', 'aAttr', 'aSize', 'uVP', 'uPointScale', 'uMaxPt', 'uSoft', 'uTime', 'uUnd', 'uZf', 'uGz', 'uDrift', 'uSkullAlpha', 'uSkullOn', 'uFocus', 'uTarget', 'uAud', 'uRegA', 'uRegB', 'uSpec']);
-  LR = locs(progRaw, ['aPos', 'aCol', 'aSize', 'uVP', 'uPointScale', 'uMaxPt', 'uSoft']);
+  try { progCloud = mkProg(VS_CLOUD, FS); progRaw = mkProg(VS_RAW, FS); progLine = mkProg(VS_LINE, FS_LINE); } catch (e) { console.error(e); gl = null; return; }
+  LC = locs(progCloud, ['aPos', 'aAttr', 'aSize', 'uVP', 'uPointScale', 'uMaxPt', 'uSoft', 'uTime', 'uUnd', 'uZf', 'uGz', 'uDrift', 'uSkullAlpha', 'uSkullOn', 'uExposure', 'uAud', 'uRegA', 'uRegB', 'uSpec']);
+  LR = locs(progRaw, ['aPos', 'aCol', 'aSize', 'uVP', 'uPointScale', 'uMaxPt', 'uSoft']); LL = locs(progLine, ['aPos', 'aCol', 'uVP']);
   glMaxPt = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1] || 64;
   // static cloud buffer: xyz float32, 4 bytes attrs, size float32 (stride 20)
   const buf = new ArrayBuffer(NALL * 20), f32 = new Float32Array(buf), u8 = new Uint8Array(buf);
   for (let i = 0; i < NALL; i++) { f32[i * 5] = D.x[i]; f32[i * 5 + 1] = D.y[i]; f32[i * 5 + 2] = D.z[i]; u8[i * 20 + 12] = D.reg[i]; u8[i * 20 + 13] = toneU8[i]; u8[i * 20 + 14] = phU8[i]; u8[i * 20 + 15] = uU8[i]; f32[i * 5 + 4] = D.size[i]; }
   bufCloud = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufCloud); gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
-  bufRaw = gl.createBuffer();
+  bufRaw = gl.createBuffer(); bufLine = gl.createBuffer();
   gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
 }
 glCanvas.addEventListener('webglcontextlost', e => { e.preventDefault(); gl = null; });
@@ -130,23 +135,25 @@ function dotActivation(i, now, F) { // JS twin of the vertex shader, for the few
 }
 function regionHue(r) { const modeHue = 262 + 136 * brain.modeMix; return r.limbic ? lerpHue(modeHue + r.hueOff, r.hue, 0.25) : r.hue; }
 function drawGL(now, F, active) {
-  const z = zf(), gz = clamp(Math.pow(view.dist / 330, 0.6), 0.15, 1.2);
+  const z = zf(), gz = clamp(Math.pow(view.dist / 330, 0.7), 0.1, 1.2), ex = 0.55 + 0.45 * view.exposure;
   for (const r of regions) { const o = r.i * 4; REGA[o] = brain.act[r.i]; REGA[o + 1] = brain.flash[r.i]; REGA[o + 2] = brain.flashHue[r.i]; REGA[o + 3] = regionHue(r); REGB[o] = r.sat; REGB[o + 1] = r.light; REGB[o + 2] = (r.limbic || r.id === 'accumbens') ? 0.2 : 0.06; REGB[o + 3] = r.limbic ? 1 : 2.2; }
   SPEC.set(F.spec);
   gl.viewport(0, 0, glCanvas.width, glCanvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(progCloud); gl.bindBuffer(gl.ARRAY_BUFFER, bufCloud);
   gl.enableVertexAttribArray(LC.aPos); gl.enableVertexAttribArray(LC.aAttr); gl.enableVertexAttribArray(LC.aSize);
   gl.vertexAttribPointer(LC.aPos, 3, gl.FLOAT, false, 20, 0); gl.vertexAttribPointer(LC.aAttr, 4, gl.UNSIGNED_BYTE, true, 20, 12); gl.vertexAttribPointer(LC.aSize, 1, gl.FLOAT, false, 20, 16);
-  gl.uniformMatrix4fv(LC.uVP, false, VP); gl.uniform1f(LC.uPointScale, pointScale); gl.uniform1f(LC.uMaxPt, glMaxPt); gl.uniform1f(LC.uTime, now); gl.uniform1f(LC.uUnd, brain.undPhase); gl.uniform1f(LC.uZf, z); gl.uniform1f(LC.uGz, gz); gl.uniform1f(LC.uDrift, REDUCED ? 0 : 0.5); gl.uniform1f(LC.uSkullAlpha, 0.1); gl.uniform1f(LC.uSkullOn, view.showSkull ? 1 : 0); gl.uniform1f(LC.uFocus, focusAmt()); gl.uniform3f(LC.uTarget, view.tx, view.ty, view.tz); gl.uniform1i(LC.uAud, regionById.auditory.i);
+  gl.uniformMatrix4fv(LC.uVP, false, VP); gl.uniform1f(LC.uPointScale, pointScale); gl.uniform1f(LC.uMaxPt, glMaxPt); gl.uniform1f(LC.uTime, now); gl.uniform1f(LC.uUnd, brain.undPhase); gl.uniform1f(LC.uZf, z); gl.uniform1f(LC.uGz, gz); gl.uniform1f(LC.uDrift, REDUCED ? 0 : 0.5); gl.uniform1f(LC.uSkullAlpha, 0.12); gl.uniform1f(LC.uSkullOn, view.showSkull ? 1 : 0); gl.uniform1f(LC.uExposure, view.exposure); gl.uniform1i(LC.uAud, regionById.auditory.i);
   gl.uniform4fv(LC.uRegA, REGA); gl.uniform4fv(LC.uRegB, REGB); gl.uniform4fv(LC.uSpec, SPEC);
   gl.uniform1f(LC.uSoft, 1); gl.drawArrays(gl.POINTS, 0, NALL);
   gl.uniform1f(LC.uSoft, 0); gl.drawArrays(gl.POINTS, 0, NALL);
   gl.disableVertexAttribArray(LC.aPos); gl.disableVertexAttribArray(LC.aAttr); gl.disableVertexAttribArray(LC.aSize);
   // pathways, pulses, synapse close-ups and overlay-requested glows
-  for (const p of paths) { const h = p.hue, pts = p.pts, gl_ = p.glow; for (let i = 0; i < pts.length; i++) { const q = pts[i], g = gl_[i]; const c = hslRgb(h, 60 + 30 * g, 42 + 36 * g); pushDisk(q.x, q.y, q.z, c[0], c[1], c[2], 0.16 + 0.7 * Math.min(1, g), Math.max(0.25, q.r * (1 + 0.5 * g) * z)); if (g > 0.15) { const cb = hslRgb(h, 85, 65); pushBloom(q.x, q.y, q.z, cb[0], cb[1], cb[2], g * 0.35, (2 + 3 * g) * gz); } } }
-  for (const pu of brain.pulses) { const pts = pu.p.pts, q = pts[clamp(Math.round(pu.t * (pts.length - 1)), 0, pts.length - 1)]; const w = hslRgb(pu.p.hue, 60, 92); pushDisk(q.x, q.y, q.z, w[0], w[1], w[2], 1, (0.55 + 0.35 * pu.i) * z); const c = hslRgb(pu.p.hue, 85, 65); pushBloom(q.x, q.y, q.z, c[0], c[1], c[2], 0.6 * pu.i, (2.5 + 3 * pu.i) * gz); }
-  for (let k = 0; k < extraGlow.length; k += 6) { const c = hslRgb(extraGlow[k], 90, 68); pushBloom(extraGlow[k + 1], extraGlow[k + 2], extraGlow[k + 3], c[0], c[1], c[2], extraGlow[k + 5] * 0.9, extraGlow[k + 4]); }
+  for (const p of paths) { const h = p.hue, pts = p.pts, gl_ = p.glow; for (let i = 0; i < pts.length; i++) { const q = pts[i], g = gl_[i]; const c = hslRgb(h, 35 + 40 * g, 40 + 28 * g); pushDisk(q.x, q.y, q.z, c[0], c[1], c[2], (0.12 + 0.6 * Math.min(1, g)) * ex, Math.max(0.2, q.r * 0.8 * z)); if (g > 0.3) { const cb = hslRgb(h, 70, 60); pushBloom(q.x, q.y, q.z, cb[0], cb[1], cb[2], (g - 0.3) * 0.3 * ex, (1.5 + 2 * g) * gz); } } }
+  for (const pu of brain.pulses) { const pts = pu.p.pts, q = pts[clamp(Math.round(pu.t * (pts.length - 1)), 0, pts.length - 1)]; const w = hslRgb(pu.p.hue, 55, 85); pushDisk(q.x, q.y, q.z, w[0], w[1], w[2], 0.85 * ex, (0.45 + 0.3 * pu.i) * z); const c = hslRgb(pu.p.hue, 70, 60); pushBloom(q.x, q.y, q.z, c[0], c[1], c[2], 0.35 * pu.i * ex, (2 + 2 * pu.i) * gz); }
+  for (let k = 0; k < extraGlow.length; k += 6) { const c = hslRgb(extraGlow[k], 70, 62); pushBloom(extraGlow[k + 1], extraGlow[k + 2], extraGlow[k + 3], c[0], c[1], c[2], extraGlow[k + 5] * 0.6 * ex, extraGlow[k + 4]); }
   extraGlow.length = 0;
+  // net sparks: signals travelling the formed networks
+  for (const s of brain.sparks) { if (s.t < 0 || s.t > 1) continue; const ed = s.ed, t = s.t; const x = lerp(D.x[ed.a], D.x[ed.b], t), y = lerp(D.y[ed.a], D.y[ed.b], t), zz = lerp(D.z[ed.a], D.z[ed.b], t); const c = hslRgb(s.net.hue, 60, 80); pushDisk(x, y, zz, c[0], c[1], c[2], 0.9 * ex, 0.32 * z); const cb = hslRgb(s.net.hue, 70, 60); pushBloom(x, y, zz, cb[0], cb[1], cb[2], 0.3 * ex, 1.6 * gz); }
   gl.useProgram(progRaw); gl.bindBuffer(gl.ARRAY_BUFFER, bufRaw);
   gl.enableVertexAttribArray(LR.aPos); gl.enableVertexAttribArray(LR.aCol); gl.enableVertexAttribArray(LR.aSize);
   gl.uniformMatrix4fv(LR.uVP, false, VP); gl.uniform1f(LR.uPointScale, pointScale); gl.uniform1f(LR.uMaxPt, glMaxPt);
@@ -157,24 +164,14 @@ function drawGL(now, F, active) {
   gl.vertexAttribPointer(LR.aPos, 3, gl.FLOAT, false, 32, 0); gl.vertexAttribPointer(LR.aCol, 4, gl.FLOAT, false, 32, 12); gl.vertexAttribPointer(LR.aSize, 1, gl.FLOAT, false, 32, 28);
   gl.uniform1f(LR.uSoft, 0); gl.drawArrays(gl.POINTS, 0, nDisk);
   nDisk = 0; nBloom = 0;
+  // formed neural nets as lines between neurons
+  let nl = 0;
+  for (const net of brain.nets.values()) { const c = hslRgb(net.hue, 45, 62); for (const ed of net.edges) { if (nl + 14 > lineData.length) break; const al = (0.05 + 0.4 * ed.s) * ex; lineData[nl++] = D.x[ed.a]; lineData[nl++] = D.y[ed.a]; lineData[nl++] = D.z[ed.a]; lineData[nl++] = c[0]; lineData[nl++] = c[1]; lineData[nl++] = c[2]; lineData[nl++] = al; lineData[nl++] = D.x[ed.b]; lineData[nl++] = D.y[ed.b]; lineData[nl++] = D.z[ed.b]; lineData[nl++] = c[0]; lineData[nl++] = c[1]; lineData[nl++] = c[2]; lineData[nl++] = al; } }
+  if (nl) { gl.useProgram(progLine); gl.bindBuffer(gl.ARRAY_BUFFER, bufLine); gl.bufferData(gl.ARRAY_BUFFER, lineData.subarray(0, nl), gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(LL.aPos); gl.enableVertexAttribArray(LL.aCol); gl.vertexAttribPointer(LL.aPos, 3, gl.FLOAT, false, 28, 0); gl.vertexAttribPointer(LL.aCol, 4, gl.FLOAT, false, 28, 12); gl.uniformMatrix4fv(LL.uVP, false, VP); gl.drawArrays(gl.LINES, 0, nl / 7); gl.disableVertexAttribArray(LL.aPos); gl.disableVertexAttribArray(LL.aCol); }
   gl.disableVertexAttribArray(LR.aPos); gl.disableVertexAttribArray(LR.aCol); gl.disableVertexAttribArray(LR.aSize);
 }
 
 // ---- 2D overlay: synapses, labels, neuron detail
-const CONN_HUE = { melody: 172, chord: 48, sample: 305 };
-function drawConnections(now) {
-  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; const z = zf(); const pxmm = pointScale / view.dpr;
-  for (const c of brain.conns) {
-    let p = project(D.x[c.a], D.y[c.a], D.z[c.a]); if (p[2] <= 0) continue; const ax = p[0], ay = p[1], wa = p[2];
-    p = project(D.x[c.b], D.y[c.b], D.z[c.b]); if (p[2] <= 0) continue; const bx = p[0], by = p[1];
-    const mx = (ax + bx) / 2, my = (ay + by) / 2, dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1; const bend = c.bend * pxmm / wa * 0.5; const cxp = mx - dy / L * bend, cyp = my + dx / L * bend;
-    const h = CONN_HUE[c.kind] || 200; const lw = (0.7 + 1.3 * c.s) * Math.min(3, 330 / wa);
-    ctx.globalAlpha = 0.12 + 0.5 * c.s; ctx.strokeStyle = hsl(h, 70, 60 + 15 * c.s); ctx.lineWidth = lw;
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp, bx, by); ctx.stroke();
-    if (c.spark >= 0) { const t = c.spark, u = 1 - t; const sx = u * u * ax + 2 * u * t * cxp + t * t * bx, sy = u * u * ay + 2 * u * t * cyp + t * t * by; ctx.globalAlpha = 0.9; ctx.fillStyle = hsl(h, 60, 95); ctx.beginPath(); ctx.arc(sx, sy, 2, 0, TAU); ctx.fill(); const wx = lerp(D.x[c.a], D.x[c.b], t), wy = lerp(D.y[c.a], D.y[c.b], t), wz = lerp(D.z[c.a], D.z[c.b], t); glow(h, wx, wy, wz, 3 * z, 0.9); }
-  }
-  ctx.globalAlpha = 1;
-}
 function drawLabels() {
   ctx.globalCompositeOperation = 'source-over'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
   ctx.font = 'italic 500 15px "Cormorant Garamond", Georgia, serif';
@@ -217,7 +214,7 @@ function getSynapse(i, now) {
 const wp3 = [0, 0, 0];
 function xf(s, i, p) { const R = s.R, k = s.scale; const x = p[0] * k, y = p[1] * k, z = p[2] * k; wp3[0] = D.x[i] + R[0] * x + R[1] * y + R[2] * z; wp3[1] = D.y[i] + R[3] * x + R[4] * y + R[5] * z; wp3[2] = D.z[i] + R[6] * x + R[7] * y + R[8] * z; return wp3; }
 function drawSynapses(now, dt, F) {
-  const fade = smoothstep(80, 45, view.dist); if (fade <= 0) { if (synapses.size) synapses.clear(); return; }
+  const fade = smoothstep(95, 55, view.dist); if (fade <= 0) { if (synapses.size) synapses.clear(); return; }
   const RAD = 22, R2 = RAD * RAD, tx = view.tx, ty = view.ty, tz = view.tz; const cand = [];
   for (let i = 0; i < ND; i++) { const dx = D.x[i] - tx, dy = D.y[i] - ty, dz = D.z[i] - tz; const d2 = dx * dx + dy * dy + dz * dz; if (d2 < R2) cand.push([i, d2]); }
   cand.sort((p, q) => p[1] - q[1]);
@@ -228,7 +225,7 @@ function drawSynapses(now, dt, F) {
     const r = regions[D.reg[i]], nt = r.nt, ntc = NT[nt], s = getSynapse(i, now);
     const focus = 1 - smoothstep(0.45, 1, Math.sqrt(d2) / RAD); const al = fade * focus; if (al <= 0.03) continue;
     const a = dotActivation(i, now, F); const hue = regionHue(r);
-    const cPre = hslRgb(hue, 55, 58), cPost = hslRgb(205, 60, 74), cNt = hslRgb(ntc.hue, 90, 70), cVes = hslRgb(ntc.hue, 85, 78);
+    const cPre = hslRgb(hue, 40, 52), cPost = hslRgb(205, 40, 66), cNt = hslRgb(ntc.hue, 75, 62), cVes = hslRgb(ntc.hue, 70, 70);
     for (const q of s.tmpl.pts) {
       const w = xf(s, i, q.p);
       if (q.k === 0) pushDisk(w[0], w[1], w[2], cPre[0], cPre[1], cPre[2], al * (0.16 + 0.14 * a), 0.05 * s.scale);
@@ -248,7 +245,7 @@ function drawSynapses(now, dt, F) {
       const e = pt.t * pt.t * (3 - 2 * pt.t), wob = Math.sin(now * 14 + pt.wob) * 0.06 * (1 - e);
       const lp = [lerp(pt.from[0], to[0], e) + wob, lerp(pt.from[1], to[1], e) + Math.cos(now * 11 + pt.wob) * 0.05 * (1 - e), lerp(pt.from[2], to[2], e)];
       const w = xf(s, i, lp); const alpha = al * (pt.st === 2 ? 0.55 : 1);
-      pushDisk(w[0], w[1], w[2], 1, 1, 1, alpha * 0.9, 0.045 * s.scale); pushBloom(w[0], w[1], w[2], cNt[0], cNt[1], cNt[2], alpha * 0.5, 0.3 * s.scale);
+      pushDisk(w[0], w[1], w[2], cVes[0], cVes[1], cVes[2], alpha * 0.9, 0.045 * s.scale); pushBloom(w[0], w[1], w[2], cNt[0], cNt[1], cNt[2], alpha * 0.3, 0.25 * s.scale);
     }
   }
   if (synapses.size > 600) for (const [k, s] of synapses) if (now - s.seen > 2) synapses.delete(k);
@@ -271,7 +268,6 @@ function render(now, dt, F, active) {
   updateCamera();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.clearRect(0, 0, w, h);
   if (!gl) { ctx.fillStyle = 'rgba(223,230,243,0.8)'; ctx.font = '14px IBM Plex Mono, monospace'; ctx.textAlign = 'center'; ctx.fillText('This visualizer needs WebGL, which this browser has turned off.', w / 2, h / 2); return; }
-  drawConnections(now); // queues sparks' glows
   drawSynapses(now, dt, F);
   drawGL(now, F, active);
   drawLabels();

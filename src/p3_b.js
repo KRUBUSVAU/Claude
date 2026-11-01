@@ -26,13 +26,13 @@ class Features {
     this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.keyCandT = 0; this.modeMix = 0.5; this.tension = 0;
     this.pitch = { f: 0, midi: -1, clarity: 0, note: '—' }; this.heldMidi = -1; this.noteHold = 0; this.lastNoteMidi = -1; this.lastNoteT = -10; this.melodySeq = []; this.peakMidi = -1; this.peakMidiT = -10;
     this.pbuf = new Float32Array(1024); this.nsdf = new Float32Array(1024); this.fp = new Float32Array(24);
-    this.protos = []; this.protoId = 0; this.repCounts = { melody: 0, chord: 0, sample: 0 };
+    this.protos = []; this.protoId = 0; this.protoSeq = []; this.tokenSeq = []; this.repCounts = { melody: 0, phrase: 0, chord: 0, sample: 0 };
     this.centroid = 0; this.centroidS = 0; this.events = []; this.now = 0; this.lastDrop = -10; this.frames = 0; this.startT = -1;
   }
   emit(e) { this.events.push(e); }
-  resetTrack() { this.bpm = 0; this.bpmConf = 0; this.bpmDisagree = 0; this.anchor = -1; this.tickK = -1; this.onsets.length = 0; this.startT = -1; this.chordSeq.length = 0; this.melodySeq.length = 0; this.protos.length = 0; this.chord = { root: -1, q: 0, name: '—', score: 0 }; this.chordCand = -1; this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.lastNoteMidi = -1; this.peakMidi = -1; this.lastDrop = -10; this.loudPeak = 0.05; this.bandPeak.fill(1e-3); this.specPeak = 1e-3; this.chromaK.fill(0); this.chromaS.fill(0); }
+  resetTrack() { this.bpm = 0; this.bpmConf = 0; this.bpmDisagree = 0; this.anchor = -1; this.tickK = -1; this.onsets.length = 0; this.startT = -1; this.chordSeq.length = 0; this.melodySeq.length = 0; this.protos.length = 0; this.protoSeq.length = 0; this.tokenSeq.length = 0; this.chord = { root: -1, q: 0, name: '—', score: 0 }; this.chordCand = -1; this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.lastNoteMidi = -1; this.peakMidi = -1; this.lastDrop = -10; this.loudPeak = 0.05; this.bandPeak.fill(1e-3); this.specPeak = 1e-3; this.chromaK.fill(0); this.chromaS.fill(0); }
   update(now, dt, active) {
-    this.events.length = 0; this.now = now;
+    this.now = now;
     if (!active) { this.loudFast *= 0.9; this.loudN = this.loudFast; this.silence = true; return; }
     if (this.startT < 0) this.startT = now;
     const an = this.an, N = this.N, mag = this.mag, prev = this.prev, db = this.db, td = this.td;
@@ -90,11 +90,19 @@ class Features {
       else if (strength > 0.7 && this.bpmConf < 0.5) { this.anchor += off * 0.5; }
       this.tickK = Math.floor((t - this.anchor) / this.period);
     }
-    if (strength > 0.22) {
+    if (strength > 0.2) {
+      // match this onset's timbre against known prototypes; a repeated *sequence* of prototypes is a phrase, a lone recurring hit is a sample
       let best = -1, bs = 0;
       for (let i = 0; i < this.protos.length; i++) { const v = this.protos[i].v; let d = 0; for (let k = 0; k < 24; k++) d += v[k] * fp[k]; if (d > bs) { bs = d; best = i; } }
-      if (bs > 0.93) { const p = this.protos[best]; if (t - p.last > 0.2) { p.count++; p.last = t; if (p.count >= 2) { this.repCounts.sample++; this.emit({ type: 'rep', kind: 'sample', hash: 's' + p.id, count: p.count, strength }); } } }
-      else { this.protos.push({ v: fp, count: 1, last: t, id: this.protoId++ }); if (this.protos.length > 48) { let li = 0; for (let i = 1; i < this.protos.length; i++) if (this.protos[i].last < this.protos[li].last) li = i; this.protos.splice(li, 1); } }
+      let p;
+      if (bs > 0.9) { p = this.protos[best]; if (t - p.last > 0.12) { p.count++; } p.last = t; }
+      else { p = { v: fp, count: 1, last: t, id: this.protoId++ }; this.protos.push(p); if (this.protos.length > 64) { let li = 0; for (let i = 1; i < this.protos.length; i++) if (this.protos[i].last < this.protos[li].last) li = i; this.protos.splice(li, 1); } }
+      // coarse token for phrase matching: dominant timbre band x strongest pitch class at this onset
+      let bb = 0, bv = -1; for (let k = 0; k < 8; k++) { let s = 0; for (let j = k * 8; j < k * 8 + 8; j++) s += this.specRaw[j]; if (s > bv) { bv = s; bb = k; } }
+      let pc = 0, pv = -1; for (let k = 0; k < 12; k++) if (this.chromaS[k] > pv) { pv = this.chromaS[k]; pc = k; }
+      this.tokenSeq.push(bb * 12 + pc); if (this.tokenSeq.length > 64) this.tokenSeq.shift();
+      const phrase = this.checkRepetition(this.tokenSeq, 'phrase', [5, 4]);
+      if (!phrase && bs > 0.9 && p.count >= 3 && strength > 0.3) { this.repCounts.sample++; this.emit({ type: 'rep', kind: 'sample', hash: 's' + p.id, count: p.count, strength }); }
     }
   }
   computeTempo(now) {
@@ -104,7 +112,7 @@ class Features {
     const hist = new Float32Array(121); let total = 0;
     for (let i = 0; i < os.length; i++) for (let j = i + 1; j < os.length; j++) {
       const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength; total += w;
-      for (let k = 0; k <= 120; k++) { const m = d * (60 + k) / 60, mr = Math.round(m); if (mr < 1 || mr > 4) continue; const dev = (m - mr) / 0.075; if (dev > 2.2 || dev < -2.2) continue; hist[k] += w * Math.exp(-dev * dev) / mr; }
+      for (let k = 0; k <= 120; k++) { const m = d * (60 + k) / 60, mr = Math.round(m); if (mr < 1 || mr > 4) continue; const dev = (m - mr) / 0.11; if (dev > 2.2 || dev < -2.2) continue; hist[k] += w * Math.exp(-dev * dev) / mr; }
     }
     if (total <= 0) return;
     let bi = 0, bv = -1;

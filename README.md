@@ -35,7 +35,11 @@ Microphone input is parked for now; the focus is on tracks.
 | Chord change | Prefrontal cortex flashes in the chord's colour: gold major, indigo minor, teal diminished, magenta suspended. The arcuate fasciculus carries the signal from the auditory cortex. |
 | Key mode (long-term major/minor) | The limbic system (cingulate, hippocampus, amygdala, hypothalamus) slowly undulates and shifts hue: warm in major, cool violet in minor. Amygdala brightens in minor passages and on startling transients. |
 | Steady tempo and major tonality | Raphe nuclei release serotonin (green) to the limbic system. |
-| Repeated melody, chord progression or sample | Hippocampus flashes and neurons connect: synapses form between auditory cortex, hippocampus and prefrontal cortex for melodies, between prefrontal and limbic regions for progressions, and within the auditory cortex for samples. Each repetition of the same material strengthens the same connections. |
+| Repeated phrase, chord progression or sample | Hippocampus flashes and a neural net grows: the first recognition seeds a few neurons (auditory cortex, hippocampus, prefrontal and temporal cortex for phrases; prefrontal, hippocampus and cingulate for progressions; auditory cortex for samples) and joins them to neighbouring neurons. Every recurrence of the same material extends the same net, strengthens its edges, and sends a signal through it. Nets fade slowly when the material stops recurring. |
+
+## Look
+
+Structures rest as muted, low-saturation clouds; activation shows as colour saturating in, not as glow, so each structure keeps its identity. Signals (pathway pulses, net sparks, molecules) sit a little brighter than tissue. A Brightness slider sets the overall level and is remembered.
 
 ## Moving around
 
@@ -58,7 +62,7 @@ All analysis runs in the browser with the Web Audio API (`AnalyserNode`, 4096-po
 - **Chords**: peak-picked chroma matched against major, minor, diminished and sus4 templates with hysteresis.
 - **Key**: Krumhansl-Kessler profiles correlated against a slow chroma average; the major/minor balance drives the limbic hue.
 - **Pitch**: normalised autocorrelation (McLeod-style) on the downsampled waveform; stable notes feed a melody of intervals.
-- **Repetition**: n-gram matching on the chord sequence and on the interval sequence (transposition-invariant); samples are recognised by cosine similarity of 24-band spectral fingerprints taken at onsets.
+- **Repetition**: phrases are sequences of onset tokens (dominant timbre band and strongest pitch class at each onset) matched as 4- and 5-grams, plus interval n-grams from the pitch tracker; progressions are chord n-grams; a sample is a single onset timbre that recurs on its own, matched by cosine similarity of 24-band fingerprints. Analysis runs on its own 50 Hz clock, independent of the frame rate.
 
 ## Installing as an app
 
