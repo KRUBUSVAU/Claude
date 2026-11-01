@@ -30,6 +30,7 @@ class Features {
     this.centroid = 0; this.centroidS = 0; this.events = []; this.now = 0; this.lastDrop = -10; this.frames = 0; this.startT = -1;
   }
   emit(e) { this.events.push(e); }
+  resetTrack() { this.bpm = 0; this.bpmConf = 0; this.bpmDisagree = 0; this.anchor = -1; this.tickK = -1; this.onsets.length = 0; this.startT = -1; this.chordSeq.length = 0; this.melodySeq.length = 0; this.protos.length = 0; this.chord = { root: -1, q: 0, name: '—', score: 0 }; this.chordCand = -1; this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.lastNoteMidi = -1; this.peakMidi = -1; this.lastDrop = -10; this.loudPeak = 0.05; this.bandPeak.fill(1e-3); this.specPeak = 1e-3; this.chromaK.fill(0); this.chromaS.fill(0); }
   update(now, dt, active) {
     this.events.length = 0; this.now = now;
     if (!active) { this.loudFast *= 0.9; this.loudN = this.loudFast; this.silence = true; return; }
@@ -97,19 +98,20 @@ class Features {
     }
   }
   computeTempo(now) {
+    // Tempogram by voting: every pair of onsets votes for each tempo at which its gap is a near-whole
+    // number of beats (1 to 4), weighted by onset strength and down-weighted for longer multiples.
     const os = this.onsets; if (os.length < 6) { this.bpmConf *= 0.85; return; }
     const hist = new Float32Array(121); let total = 0;
     for (let i = 0; i < os.length; i++) for (let j = i + 1; j < os.length; j++) {
-      const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength;
-      let p = d; while (p > 1.0) p /= 2; while (p < 0.33334) p *= 2; const c = 60 / p - 60;
-      for (let k = Math.max(0, Math.floor(c - 3)); k <= Math.min(120, Math.ceil(c + 3)); k++) { const g = Math.exp(-((k - c) * (k - c)) / 3); hist[k] += w * g; total += w * g; }
+      const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength; total += w;
+      for (let k = 0; k <= 120; k++) { const m = d * (60 + k) / 60, mr = Math.round(m); if (mr < 1 || mr > 4) continue; const dev = (m - mr) / 0.075; if (dev > 2.2 || dev < -2.2) continue; hist[k] += w * Math.exp(-dev * dev) / mr; }
     }
     if (total <= 0) return;
     let bi = 0, bv = -1;
-    for (let k = 0; k <= 120; k++) { const pref = Math.exp(-((k + 60 - 112) ** 2) / (2 * 38 * 38)); const v = hist[k] * (0.55 + 0.45 * pref); if (v > bv) { bv = v; bi = k; } }
+    for (let k = 0; k <= 120; k++) { const pref = Math.exp(-((k + 60 - 115) ** 2) / (2 * 40 * 40)); const v = hist[k] * (0.6 + 0.4 * pref); if (v > bv) { bv = v; bi = k; } }
     let cand = 60 + bi;
-    if (bi > 0 && bi < 120) { const y0 = hist[bi - 1], y1 = hist[bi], y2 = hist[bi + 1], den = y0 - 2 * y1 + y2; if (Math.abs(den) > 1e-9) cand += 0.5 * (y0 - y2) / den; }
-    const conf = clamp(hist[bi] / (total / 12), 0, 1); this.bpmConf += (conf - this.bpmConf) * 0.5;
+    if (bi > 0 && bi < 120) { const y0 = hist[bi - 1], y1 = hist[bi], y2 = hist[bi + 1], den = y0 - 2 * y1 + y2; if (Math.abs(den) > 1e-9) cand += clamp(0.5 * (y0 - y2) / den, -1, 1); }
+    const conf = clamp(hist[bi] / (total * 0.28), 0, 1); this.bpmConf += (conf - this.bpmConf) * 0.5;
     if (this.bpm === 0) { if (conf > 0.25) { this.bpm = cand; this.period = 60 / cand; this.anchor = this.lastOnset; this.tickK = Math.floor((now - this.anchor) / this.period); } return; }
     const rel = (a, b) => Math.abs(a - b) / b;
     const near = rel(cand, this.bpm) < 0.045, family = near || rel(cand, this.bpm * 2) < 0.045 || rel(cand * 2, this.bpm) < 0.045;

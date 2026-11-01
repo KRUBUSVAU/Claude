@@ -1,8 +1,9 @@
+<canvas id="gl" aria-hidden="true"></canvas>
 <canvas id="stage" aria-label="Brain visualizer canvas"></canvas>
 <div class="ui">
   <header class="brand">
     <h1>Neural Resonance</h1>
-    <p class="status" id="status">Resting state. Pick a sound source to begin.</p>
+    <p class="status" id="status">Resting state. Add a track to begin.</p>
   </header>
 
   <aside class="readout panel" id="readout">
@@ -34,18 +35,33 @@
   </aside>
 
   <div class="dock">
+    <section class="library panel" id="library" hidden aria-label="Track library">
+      <header><h2>Library <span class="count" id="libCount2">0</span></h2><button class="btn quiet tiny" id="btnClearLib">Clear all</button><button class="btn icon tiny" id="btnCloseLib" aria-label="Close library">×</button></header>
+      <p class="empty" id="libEmpty">No tracks yet. <b>Add tracks</b> or drop audio files anywhere on the page. They stay in this browser's library for next time.</p>
+      <ol id="libList"></ol>
+    </section>
     <div class="row">
-      <button class="btn" id="btnMic">Microphone</button>
-      <label class="btn" for="fileIn" id="lblFile">Upload track</label>
-      <input id="fileIn" type="file" accept="audio/*" hidden>
+      <label class="btn" for="fileIn" id="lblFile">Add tracks</label>
+      <input id="fileIn" type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.webm" multiple hidden>
+      <button class="btn" id="btnLibrary" aria-expanded="false" aria-controls="library">Library <span class="count" id="libCount">0</span></button>
       <button class="btn" id="btnDemo">Demo loop</button>
       <button class="btn quiet" id="btnStop" hidden>Stop</button>
+      <button class="btn" id="btnInstall" hidden>Install app</button>
     </div>
     <div class="transport panel" id="transport" hidden>
-      <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
-      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
-      <span class="t" id="time">0:00 / 0:00</span>
-      <span class="name" id="trackName"></span>
+      <div class="np"><span class="name" id="trackName"></span><span class="pos" id="trackPos"></span></div>
+      <div class="tr-row">
+        <button class="btn icon" id="btnPrev" aria-label="Previous track">◀◀</button>
+        <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
+        <button class="btn icon" id="btnNext" aria-label="Next track">▶▶</button>
+        <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+        <span class="t" id="time">0:00 / 0:00</span>
+      </div>
+      <div class="tr-row sub">
+        <button class="btn icon tiny" id="btnShuffle" aria-pressed="false" title="Shuffle">⇄ shuffle</button>
+        <button class="btn icon tiny" id="btnRepeat" aria-pressed="false" title="Repeat">↻ repeat</button>
+        <label class="vol"><span>Vol</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume"></label>
+      </div>
     </div>
     <div class="row">
       <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>

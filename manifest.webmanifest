@@ -1,0 +1,23 @@
+{
+  "name": "Neural Resonance",
+  "short_name": "Resonance",
+  "description": "A music visualizer that maps what it hears onto a brain of dot clouds: spectrum, beat, tempo, chords, key and repetition become brain regions, neuromodulators and synapses.",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    { "action": "./index.html", "accept": { "audio/*": [".mp3", ".wav", ".ogg", ".oga", ".flac", ".m4a", ".aac", ".opus", ".webm"] } }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}

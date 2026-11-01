@@ -79,7 +79,7 @@ const REGIONS = [
   { id: 'parietal', name: 'Parietal cortex', pts: [[475, 172], [590, 180], [700, 215], [770, 285], [700, 345], [600, 372], [520, 378], [505, 320]], hue: 196, sat: 45, light: 60, layer: 1, nt: 'ne', desc: 'Midrange energy. Brightens under norepinephrine.' },
   { id: 'occipital', name: 'Occipital cortex', pts: [[770, 285], [835, 370], [825, 450], [760, 490], [690, 465], [645, 405], [700, 345]], hue: 222, sat: 50, light: 62, layer: 1, nt: 'ne', desc: 'High frequencies shimmer here. Brightens under norepinephrine.' },
   { id: 'temporal', name: 'Temporal cortex', pts: [[282, 478], [335, 440], [440, 405], [520, 392], [600, 385], [645, 405], [650, 450], [590, 490], [470, 520], [345, 528]], hue: 182, sat: 45, light: 58, layer: 1, nt: 'glu', desc: 'Overall loudness and timbre.' },
-  { id: 'auditory', name: 'Auditory cortex', pts: [[410, 416], [470, 401], [560, 394], [614, 400], [604, 432], [520, 440], [438, 450], [400, 444]], hue: 168, sat: 75, light: 66, layer: 2, pri: 2, sp: 5.0, r: 2.1, nt: 'glu', desc: 'Tonotopic map: low frequencies at the front, high at the back. Each dot follows one band of the live spectrum.' },
+  { id: 'auditory', name: 'Auditory cortex', pts: [[410, 416], [470, 401], [560, 394], [614, 400], [604, 432], [520, 440], [438, 450], [400, 444]], hue: 168, sat: 75, light: 66, layer: 2, pri: 2, sp: 3.8, r: 1.7, nt: 'glu', desc: 'Tonotopic map: low frequencies at the front, high at the back. Each dot follows one band of the live spectrum.' },
   { id: 'cingulate', name: 'Cingulate cortex', pts: [[345, 300], [420, 250], [520, 232], [620, 245], [690, 290], [680, 318], [610, 282], [520, 268], [430, 282], [360, 325]], hue: 285, sat: 55, light: 62, layer: 2, pri: 3, nt: 'ht', limbic: true, hueOff: 10, desc: 'Limbic. Undulates with the key: warm in major, cool in minor. Flashes with harmonic tension.' },
   { id: 'striatum', name: 'Striatum (basal ganglia)', ellipse: [455, 352, 48, 42, 0], hue: 30, sat: 80, light: 62, layer: 2, pri: 4, nt: 'da', desc: 'Groove. Locks to the beat; dopamine makes it glow.' },
   { id: 'thalamus', name: 'Thalamus', ellipse: [545, 370, 58, 36, 0], hue: 204, sat: 55, light: 66, layer: 2, pri: 4, nt: 'ne', desc: 'Relay. Brightness follows loudness; every pathway passes through.' },
@@ -89,9 +89,9 @@ const REGIONS = [
   { id: 'accumbens', name: 'Nucleus accumbens', ellipse: [405, 428, 22, 18, 0], hue: 318, sat: 80, light: 66, layer: 2, pri: 5, nt: 'da', desc: 'Reward. Lights up with dopamine: drops, resolutions, predicted beats.' },
   { id: 'cerebellum', name: 'Cerebellum', pts: [[615, 485], [710, 495], [790, 525], [780, 600], [700, 640], [610, 615], [575, 545]], hue: 300, sat: 40, light: 58, layer: 1, nt: 'glu', desc: 'Timing. Ticks on every predicted beat, even in the silence between hits.' },
   { id: 'brainstem', name: 'Brainstem', pts: [[505, 468], [575, 478], [592, 545], [585, 660], [550, 720], [505, 720], [490, 610], [495, 520]], hue: 212, sat: 35, light: 56, layer: 1, nt: 'glu', desc: 'Sound arrives here first and climbs to the thalamus.' },
-  { id: 'vta', name: 'Ventral tegmental area', ellipse: [540, 520, 12, 10, 0], hue: 318, sat: 90, light: 68, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'da', label: [26, 4], desc: 'Dopamine source. Fires on drops, cadences, melodic leaps and beats that land where predicted.' },
-  { id: 'lc', name: 'Locus coeruleus', ellipse: [562, 600, 10, 9, 0], hue: 40, sat: 95, light: 66, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ne', label: [26, 4], desc: 'Norepinephrine source. Fires on tempo changes and sudden loudness.' },
-  { id: 'raphe', name: 'Raphe nuclei', ellipse: [540, 645, 10, 10, 0], hue: 150, sat: 70, light: 64, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ht', label: [26, 4], desc: 'Serotonin source. Rises with steady tempo and major tonality.' },
+  { id: 'vta', name: 'Ventral tegmental area', ellipse: [540, 520, 12, 10, 0], hue: 318, sat: 90, light: 68, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'da', label: [26, 4], desc: 'Dopamine source. Fires on drops, cadences, melodic leaps and beats that land where predicted.' },
+  { id: 'lc', name: 'Locus coeruleus', ellipse: [562, 600, 10, 9, 0], hue: 40, sat: 95, light: 66, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'ne', label: [26, 4], desc: 'Norepinephrine source. Fires on tempo changes and sudden loudness.' },
+  { id: 'raphe', name: 'Raphe nuclei', ellipse: [540, 645, 10, 10, 0], hue: 150, sat: 70, light: 64, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'ht', label: [26, 4], desc: 'Serotonin source. Rises with steady tempo and major tonality.' },
 ];
 
 const PATHWAYS = [
@@ -133,10 +133,10 @@ const inner = regions.filter(r => r.layer === 2).sort((p, q) => q.pri - p.pri);
 function insideInner(x, y, minPri) { for (const r of inner) { if (r.pri <= minPri) break; if (x < r.bb.x || x > r.bb.x + r.bb.w || y < r.bb.y || y > r.bb.y + r.bb.h) continue; if (pointInPoly(r.poly, x, y)) return true; } return false; }
 const tmp = [];
 regions.forEach(r => {
-  const sp = r.sp || (r.layer === 2 ? 5.6 : 7.4);
+  const sp = r.sp || (r.layer === 2 ? 4.1 : 5.3);
   const pri = r.layer === 1 ? 0 : r.pri; const pts = samplePoly(r.poly, sp, rng0, (x, y) => insideInner(x, y, pri));
   r.start = tmp.length;
-  for (const p of pts) tmp.push({ x: p[0], y: p[1], reg: r.i, tone: rng0() * 2 - 1, size: (r.r || 2.2) * (0.72 + rng0() * 0.56), phase: rng0() * TAU, u: (p[0] - r.bb.x) / r.bb.w, seed: (rng0() * 4294967295) >>> 0 });
+  for (const p of pts) tmp.push({ x: p[0], y: p[1], reg: r.i, tone: rng0() * 2 - 1, size: (r.r || 1.75) * (0.7 + rng0() * 0.6), phase: rng0() * TAU, u: (p[0] - r.bb.x) / r.bb.w, seed: (rng0() * 4294967295) >>> 0 });
   r.end = tmp.length;
 });
 const ND = tmp.length;
@@ -146,10 +146,10 @@ tmp.forEach((d, i) => { D.x[i] = d.x; D.y[i] = d.y; D.reg[i] = d.reg; D.tone[i] 
 const paths = PATHWAYS.map((p, i) => {
   const curve = catmull(p.pts, false, 12);
   let total = 0; for (let k = 1; k < curve.length; k++) total += Math.hypot(curve[k][0] - curve[k - 1][0], curve[k][1] - curve[k - 1][1]);
-  const spacing = 5.5, pts = []; let acc = 0, next = 0;
+  const spacing = 4.2, pts = []; let acc = 0, next = 0;
   for (let k = 1; k < curve.length; k++) {
     const a = curve[k - 1], b = curve[k], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    while (next <= acc + L && L > 0) { const f = (next - acc) / L; pts.push({ x: lerp(a[0], b[0], f) + (rng0() - 0.5) * 1.6, y: lerp(a[1], b[1], f) + (rng0() - 0.5) * 1.6, t: next / total, r: 1.3 + rng0() * 0.8 }); next += spacing; }
+    while (next <= acc + L && L > 0) { const f = (next - acc) / L; pts.push({ x: lerp(a[0], b[0], f) + (rng0() - 0.5) * 1.6, y: lerp(a[1], b[1], f) + (rng0() - 0.5) * 1.6, t: next / total, r: 1.1 + rng0() * 0.7 }); next += spacing; }
     acc += L;
   }
   return Object.assign({}, p, { i, curve, pts, length: total, glow: new Float32Array(pts.length), lastSpawn: -1, hue: NT[p.nt].hue, toR: p.to ? regionById[p.to] : null });

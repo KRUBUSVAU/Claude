@@ -1,0 +1,32 @@
+{
+  "name": "neural-resonance-desktop",
+  "productName": "Neural Resonance",
+  "version": "0.1.0",
+  "description": "Neural Resonance as a desktop app (Electron wrapper around index.html).",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "sync": "node sync.js",
+    "prestart": "node sync.js",
+    "start": "electron .",
+    "predist": "node sync.js",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.neuralresonance.desktop",
+    "productName": "Neural Resonance",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "app/**/*"],
+    "mac": { "category": "public.app-category.music", "icon": "app/icons/icon-512.png", "target": ["dmg", "zip"] },
+    "win": { "icon": "app/icons/icon-512.png", "target": ["nsis", "portable"] },
+    "linux": { "icon": "app/icons/icon-512.png", "category": "AudioVideo", "target": ["AppImage", "deb"] },
+    "fileAssociations": [{ "ext": ["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"], "name": "Audio", "role": "Viewer" }]
+  }
+}

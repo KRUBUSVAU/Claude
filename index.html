@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; object-src 'none'; base-uri 'self'">
+<meta name="theme-color" content="#05070d">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="A music visualizer that maps what it hears onto a brain of dot clouds: spectrum, beat, tempo, chords, key and repetition become brain regions, neuromodulators and synapses.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Resonance">
 <!-- ARTIFACT-START -->
 <title>Neural Resonance</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -25,7 +36,9 @@
 [hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-mono);overflow:hidden;-webkit-font-smoothing:antialiased}
-#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;background:var(--bg)}
+#gl,#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+#gl{pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#0b1222 0%,#05070d 70%)}
+#stage{touch-action:none;cursor:grab;background:transparent}
 #stage.dragging{cursor:grabbing}
 
 .ui{position:fixed;inset:0;pointer-events:none;display:grid;gap:12px;
@@ -77,10 +90,34 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
 .btn.quiet{border-color:var(--line);color:var(--fg-dim)}
 .btn.icon{padding:7px 10px;min-width:32px;justify-content:center;font-size:13px}
 .btn[hidden]{display:none}
-.transport{display:flex;align-items:center;gap:8px;padding:6px 8px;max-width:100%}
-.transport input[type=range]{flex:1;min-width:80px;accent-color:var(--accent);height:14px;margin:0}
+.transport{display:flex;flex-direction:column;gap:6px;padding:8px 10px;max-width:100%;width:min(100%,34rem)}
+.transport input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:14px;margin:0}
 .transport .t{font-variant-numeric:tabular-nums;color:var(--fg-dim);font-size:11px;white-space:nowrap}
-.transport .name{max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim);font-size:11px}
+.np{display:flex;justify-content:space-between;gap:10px;align-items:baseline;min-width:0}
+.np .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:italic 500 16px/1.2 var(--font-display);color:#eef3ff}
+.np .pos{color:var(--fg-faint);font-size:10.5px;letter-spacing:.06em;white-space:nowrap}
+.tr-row{display:flex;align-items:center;gap:6px;min-width:0}
+.tr-row.sub{justify-content:flex-start}
+.btn.tiny{padding:5px 8px;font-size:11px;min-width:28px}
+.btn[aria-pressed=true]{border-color:var(--accent);color:#fff}
+.vol{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--fg-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.vol input{width:90px}
+.count{display:inline-block;min-width:1.4em;padding:1px 5px;border-radius:9px;background:rgba(150,190,255,.14);color:var(--fg);font-size:10px;text-align:center;letter-spacing:0}
+.library{width:min(100%,34rem);max-height:min(42vh,22rem);display:flex;flex-direction:column;overflow:hidden}
+.library header{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line)}
+.library header h2{margin:0;flex:1;font:500 10px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-dim)}
+.library ol{list-style:none;margin:0;padding:4px 0;overflow:auto;scrollbar-width:thin}
+.library li{display:grid;grid-template-columns:1.6em minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:5px 8px 5px 12px;cursor:pointer;color:var(--fg-dim);font-size:12px}
+.library li:hover{background:rgba(150,190,255,.07);color:var(--fg)}
+.library li.now{color:#fff}
+.library li.now .n{color:var(--accent)}
+.library li .n{font-variant-numeric:tabular-nums;color:var(--fg-faint);font-size:10.5px}
+.library li .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.library li .d{font-variant-numeric:tabular-nums;color:var(--fg-faint);font-size:11px}
+.library li .rm{all:unset;cursor:pointer;color:var(--fg-faint);padding:0 4px;font-size:14px;line-height:1}
+.library li .rm:hover,.library li .rm:focus-visible{color:#fff}
+.library .empty{margin:0;padding:12px;color:var(--fg-dim);font-size:11.5px;line-height:1.5}
+.library .empty b{color:var(--fg);font-weight:500}
 .hint{color:var(--fg-faint);font-size:10.5px;letter-spacing:.03em;max-width:26rem}
 
 .tip{position:fixed;left:0;top:0;pointer-events:none;max-width:260px;padding:8px 11px 9px;background:rgba(7,11,20,.86);border:1px solid var(--line-strong);border-radius:3px;transform:translate(14px,14px);z-index:5}
@@ -102,11 +139,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
 </style>
 </head>
 <body>
+<canvas id="gl" aria-hidden="true"></canvas>
 <canvas id="stage" aria-label="Brain visualizer canvas"></canvas>
 <div class="ui">
   <header class="brand">
     <h1>Neural Resonance</h1>
-    <p class="status" id="status">Resting state. Pick a sound source to begin.</p>
+    <p class="status" id="status">Resting state. Add a track to begin.</p>
   </header>
 
   <aside class="readout panel" id="readout">
@@ -138,18 +176,33 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
   </aside>
 
   <div class="dock">
+    <section class="library panel" id="library" hidden aria-label="Track library">
+      <header><h2>Library <span class="count" id="libCount2">0</span></h2><button class="btn quiet tiny" id="btnClearLib">Clear all</button><button class="btn icon tiny" id="btnCloseLib" aria-label="Close library">×</button></header>
+      <p class="empty" id="libEmpty">No tracks yet. <b>Add tracks</b> or drop audio files anywhere on the page. They stay in this browser's library for next time.</p>
+      <ol id="libList"></ol>
+    </section>
     <div class="row">
-      <button class="btn" id="btnMic">Microphone</button>
-      <label class="btn" for="fileIn" id="lblFile">Upload track</label>
-      <input id="fileIn" type="file" accept="audio/*" hidden>
+      <label class="btn" for="fileIn" id="lblFile">Add tracks</label>
+      <input id="fileIn" type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.webm" multiple hidden>
+      <button class="btn" id="btnLibrary" aria-expanded="false" aria-controls="library">Library <span class="count" id="libCount">0</span></button>
       <button class="btn" id="btnDemo">Demo loop</button>
       <button class="btn quiet" id="btnStop" hidden>Stop</button>
+      <button class="btn" id="btnInstall" hidden>Install app</button>
     </div>
     <div class="transport panel" id="transport" hidden>
-      <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
-      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
-      <span class="t" id="time">0:00 / 0:00</span>
-      <span class="name" id="trackName"></span>
+      <div class="np"><span class="name" id="trackName"></span><span class="pos" id="trackPos"></span></div>
+      <div class="tr-row">
+        <button class="btn icon" id="btnPrev" aria-label="Previous track">◀◀</button>
+        <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
+        <button class="btn icon" id="btnNext" aria-label="Next track">▶▶</button>
+        <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+        <span class="t" id="time">0:00 / 0:00</span>
+      </div>
+      <div class="tr-row sub">
+        <button class="btn icon tiny" id="btnShuffle" aria-pressed="false" title="Shuffle">⇄ shuffle</button>
+        <button class="btn icon tiny" id="btnRepeat" aria-pressed="false" title="Repeat">↻ repeat</button>
+        <label class="vol"><span>Vol</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume"></label>
+      </div>
     </div>
     <div class="row">
       <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>
@@ -243,7 +296,7 @@ const REGIONS = [
   { id: 'parietal', name: 'Parietal cortex', pts: [[475, 172], [590, 180], [700, 215], [770, 285], [700, 345], [600, 372], [520, 378], [505, 320]], hue: 196, sat: 45, light: 60, layer: 1, nt: 'ne', desc: 'Midrange energy. Brightens under norepinephrine.' },
   { id: 'occipital', name: 'Occipital cortex', pts: [[770, 285], [835, 370], [825, 450], [760, 490], [690, 465], [645, 405], [700, 345]], hue: 222, sat: 50, light: 62, layer: 1, nt: 'ne', desc: 'High frequencies shimmer here. Brightens under norepinephrine.' },
   { id: 'temporal', name: 'Temporal cortex', pts: [[282, 478], [335, 440], [440, 405], [520, 392], [600, 385], [645, 405], [650, 450], [590, 490], [470, 520], [345, 528]], hue: 182, sat: 45, light: 58, layer: 1, nt: 'glu', desc: 'Overall loudness and timbre.' },
-  { id: 'auditory', name: 'Auditory cortex', pts: [[410, 416], [470, 401], [560, 394], [614, 400], [604, 432], [520, 440], [438, 450], [400, 444]], hue: 168, sat: 75, light: 66, layer: 2, pri: 2, sp: 5.0, r: 2.1, nt: 'glu', desc: 'Tonotopic map: low frequencies at the front, high at the back. Each dot follows one band of the live spectrum.' },
+  { id: 'auditory', name: 'Auditory cortex', pts: [[410, 416], [470, 401], [560, 394], [614, 400], [604, 432], [520, 440], [438, 450], [400, 444]], hue: 168, sat: 75, light: 66, layer: 2, pri: 2, sp: 3.8, r: 1.7, nt: 'glu', desc: 'Tonotopic map: low frequencies at the front, high at the back. Each dot follows one band of the live spectrum.' },
   { id: 'cingulate', name: 'Cingulate cortex', pts: [[345, 300], [420, 250], [520, 232], [620, 245], [690, 290], [680, 318], [610, 282], [520, 268], [430, 282], [360, 325]], hue: 285, sat: 55, light: 62, layer: 2, pri: 3, nt: 'ht', limbic: true, hueOff: 10, desc: 'Limbic. Undulates with the key: warm in major, cool in minor. Flashes with harmonic tension.' },
   { id: 'striatum', name: 'Striatum (basal ganglia)', ellipse: [455, 352, 48, 42, 0], hue: 30, sat: 80, light: 62, layer: 2, pri: 4, nt: 'da', desc: 'Groove. Locks to the beat; dopamine makes it glow.' },
   { id: 'thalamus', name: 'Thalamus', ellipse: [545, 370, 58, 36, 0], hue: 204, sat: 55, light: 66, layer: 2, pri: 4, nt: 'ne', desc: 'Relay. Brightness follows loudness; every pathway passes through.' },
@@ -253,9 +306,9 @@ const REGIONS = [
   { id: 'accumbens', name: 'Nucleus accumbens', ellipse: [405, 428, 22, 18, 0], hue: 318, sat: 80, light: 66, layer: 2, pri: 5, nt: 'da', desc: 'Reward. Lights up with dopamine: drops, resolutions, predicted beats.' },
   { id: 'cerebellum', name: 'Cerebellum', pts: [[615, 485], [710, 495], [790, 525], [780, 600], [700, 640], [610, 615], [575, 545]], hue: 300, sat: 40, light: 58, layer: 1, nt: 'glu', desc: 'Timing. Ticks on every predicted beat, even in the silence between hits.' },
   { id: 'brainstem', name: 'Brainstem', pts: [[505, 468], [575, 478], [592, 545], [585, 660], [550, 720], [505, 720], [490, 610], [495, 520]], hue: 212, sat: 35, light: 56, layer: 1, nt: 'glu', desc: 'Sound arrives here first and climbs to the thalamus.' },
-  { id: 'vta', name: 'Ventral tegmental area', ellipse: [540, 520, 12, 10, 0], hue: 318, sat: 90, light: 68, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'da', label: [26, 4], desc: 'Dopamine source. Fires on drops, cadences, melodic leaps and beats that land where predicted.' },
-  { id: 'lc', name: 'Locus coeruleus', ellipse: [562, 600, 10, 9, 0], hue: 40, sat: 95, light: 66, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ne', label: [26, 4], desc: 'Norepinephrine source. Fires on tempo changes and sudden loudness.' },
-  { id: 'raphe', name: 'Raphe nuclei', ellipse: [540, 645, 10, 10, 0], hue: 150, sat: 70, light: 64, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ht', label: [26, 4], desc: 'Serotonin source. Rises with steady tempo and major tonality.' },
+  { id: 'vta', name: 'Ventral tegmental area', ellipse: [540, 520, 12, 10, 0], hue: 318, sat: 90, light: 68, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'da', label: [26, 4], desc: 'Dopamine source. Fires on drops, cadences, melodic leaps and beats that land where predicted.' },
+  { id: 'lc', name: 'Locus coeruleus', ellipse: [562, 600, 10, 9, 0], hue: 40, sat: 95, light: 66, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'ne', label: [26, 4], desc: 'Norepinephrine source. Fires on tempo changes and sudden loudness.' },
+  { id: 'raphe', name: 'Raphe nuclei', ellipse: [540, 645, 10, 10, 0], hue: 150, sat: 70, light: 64, layer: 2, pri: 6, sp: 3.1, r: 1.9, nt: 'ht', label: [26, 4], desc: 'Serotonin source. Rises with steady tempo and major tonality.' },
 ];
 
 const PATHWAYS = [
@@ -297,10 +350,10 @@ const inner = regions.filter(r => r.layer === 2).sort((p, q) => q.pri - p.pri);
 function insideInner(x, y, minPri) { for (const r of inner) { if (r.pri <= minPri) break; if (x < r.bb.x || x > r.bb.x + r.bb.w || y < r.bb.y || y > r.bb.y + r.bb.h) continue; if (pointInPoly(r.poly, x, y)) return true; } return false; }
 const tmp = [];
 regions.forEach(r => {
-  const sp = r.sp || (r.layer === 2 ? 5.6 : 7.4);
+  const sp = r.sp || (r.layer === 2 ? 4.1 : 5.3);
   const pri = r.layer === 1 ? 0 : r.pri; const pts = samplePoly(r.poly, sp, rng0, (x, y) => insideInner(x, y, pri));
   r.start = tmp.length;
-  for (const p of pts) tmp.push({ x: p[0], y: p[1], reg: r.i, tone: rng0() * 2 - 1, size: (r.r || 2.2) * (0.72 + rng0() * 0.56), phase: rng0() * TAU, u: (p[0] - r.bb.x) / r.bb.w, seed: (rng0() * 4294967295) >>> 0 });
+  for (const p of pts) tmp.push({ x: p[0], y: p[1], reg: r.i, tone: rng0() * 2 - 1, size: (r.r || 1.75) * (0.7 + rng0() * 0.6), phase: rng0() * TAU, u: (p[0] - r.bb.x) / r.bb.w, seed: (rng0() * 4294967295) >>> 0 });
   r.end = tmp.length;
 });
 const ND = tmp.length;
@@ -310,10 +363,10 @@ tmp.forEach((d, i) => { D.x[i] = d.x; D.y[i] = d.y; D.reg[i] = d.reg; D.tone[i] 
 const paths = PATHWAYS.map((p, i) => {
   const curve = catmull(p.pts, false, 12);
   let total = 0; for (let k = 1; k < curve.length; k++) total += Math.hypot(curve[k][0] - curve[k - 1][0], curve[k][1] - curve[k - 1][1]);
-  const spacing = 5.5, pts = []; let acc = 0, next = 0;
+  const spacing = 4.2, pts = []; let acc = 0, next = 0;
   for (let k = 1; k < curve.length; k++) {
     const a = curve[k - 1], b = curve[k], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    while (next <= acc + L && L > 0) { const f = (next - acc) / L; pts.push({ x: lerp(a[0], b[0], f) + (rng0() - 0.5) * 1.6, y: lerp(a[1], b[1], f) + (rng0() - 0.5) * 1.6, t: next / total, r: 1.3 + rng0() * 0.8 }); next += spacing; }
+    while (next <= acc + L && L > 0) { const f = (next - acc) / L; pts.push({ x: lerp(a[0], b[0], f) + (rng0() - 0.5) * 1.6, y: lerp(a[1], b[1], f) + (rng0() - 0.5) * 1.6, t: next / total, r: 1.1 + rng0() * 0.7 }); next += spacing; }
     acc += L;
   }
   return Object.assign({}, p, { i, curve, pts, length: total, glow: new Float32Array(pts.length), lastSpawn: -1, hue: NT[p.nt].hue, toR: p.to ? regionById[p.to] : null });
@@ -351,6 +404,7 @@ class Features {
     this.centroid = 0; this.centroidS = 0; this.events = []; this.now = 0; this.lastDrop = -10; this.frames = 0; this.startT = -1;
   }
   emit(e) { this.events.push(e); }
+  resetTrack() { this.bpm = 0; this.bpmConf = 0; this.bpmDisagree = 0; this.anchor = -1; this.tickK = -1; this.onsets.length = 0; this.startT = -1; this.chordSeq.length = 0; this.melodySeq.length = 0; this.protos.length = 0; this.chord = { root: -1, q: 0, name: '—', score: 0 }; this.chordCand = -1; this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.lastNoteMidi = -1; this.peakMidi = -1; this.lastDrop = -10; this.loudPeak = 0.05; this.bandPeak.fill(1e-3); this.specPeak = 1e-3; this.chromaK.fill(0); this.chromaS.fill(0); }
   update(now, dt, active) {
     this.events.length = 0; this.now = now;
     if (!active) { this.loudFast *= 0.9; this.loudN = this.loudFast; this.silence = true; return; }
@@ -418,19 +472,20 @@ class Features {
     }
   }
   computeTempo(now) {
+    // Tempogram by voting: every pair of onsets votes for each tempo at which its gap is a near-whole
+    // number of beats (1 to 4), weighted by onset strength and down-weighted for longer multiples.
     const os = this.onsets; if (os.length < 6) { this.bpmConf *= 0.85; return; }
     const hist = new Float32Array(121); let total = 0;
     for (let i = 0; i < os.length; i++) for (let j = i + 1; j < os.length; j++) {
-      const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength;
-      let p = d; while (p > 1.0) p /= 2; while (p < 0.33334) p *= 2; const c = 60 / p - 60;
-      for (let k = Math.max(0, Math.floor(c - 3)); k <= Math.min(120, Math.ceil(c + 3)); k++) { const g = Math.exp(-((k - c) * (k - c)) / 3); hist[k] += w * g; total += w * g; }
+      const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength; total += w;
+      for (let k = 0; k <= 120; k++) { const m = d * (60 + k) / 60, mr = Math.round(m); if (mr < 1 || mr > 4) continue; const dev = (m - mr) / 0.075; if (dev > 2.2 || dev < -2.2) continue; hist[k] += w * Math.exp(-dev * dev) / mr; }
     }
     if (total <= 0) return;
     let bi = 0, bv = -1;
-    for (let k = 0; k <= 120; k++) { const pref = Math.exp(-((k + 60 - 112) ** 2) / (2 * 38 * 38)); const v = hist[k] * (0.55 + 0.45 * pref); if (v > bv) { bv = v; bi = k; } }
+    for (let k = 0; k <= 120; k++) { const pref = Math.exp(-((k + 60 - 115) ** 2) / (2 * 40 * 40)); const v = hist[k] * (0.6 + 0.4 * pref); if (v > bv) { bv = v; bi = k; } }
     let cand = 60 + bi;
-    if (bi > 0 && bi < 120) { const y0 = hist[bi - 1], y1 = hist[bi], y2 = hist[bi + 1], den = y0 - 2 * y1 + y2; if (Math.abs(den) > 1e-9) cand += 0.5 * (y0 - y2) / den; }
-    const conf = clamp(hist[bi] / (total / 12), 0, 1); this.bpmConf += (conf - this.bpmConf) * 0.5;
+    if (bi > 0 && bi < 120) { const y0 = hist[bi - 1], y1 = hist[bi], y2 = hist[bi + 1], den = y0 - 2 * y1 + y2; if (Math.abs(den) > 1e-9) cand += clamp(0.5 * (y0 - y2) / den, -1, 1); }
+    const conf = clamp(hist[bi] / (total * 0.28), 0, 1); this.bpmConf += (conf - this.bpmConf) * 0.5;
     if (this.bpm === 0) { if (conf > 0.25) { this.bpm = cand; this.period = 60 / cand; this.anchor = this.lastOnset; this.tickK = Math.floor((now - this.anchor) / this.period); } return; }
     const rel = (a, b) => Math.abs(a - b) / b;
     const near = rel(cand, this.bpm) < 0.045, family = near || rel(cand, this.bpm * 2) < 0.045 || rel(cand * 2, this.bpm) < 0.045;
@@ -636,32 +691,131 @@ class Brain {
 }
 
 // ---------- renderer ----------
+// Two stacked canvases: a WebGL canvas draws every dot as a GPU point sprite (one draw call for the
+// clouds, one for their bloom); a transparent 2D canvas above it draws the skull, synapse lines,
+// labels and the zoomed-in neuron detail. If WebGL is unavailable, the 2D canvas draws everything.
 const canvas = document.getElementById('stage');
-const ctx = canvas.getContext('2d', { alpha: false });
-const view = { w: 1, h: 1, dpr: 1, base: 1, scale: 1, z: 1, cx: 505, cy: 415, tz: 1, tcx: 505, tcy: 415, animating: false };
+const ctx = canvas.getContext('2d', { alpha: true });
+const glCanvas = document.getElementById('gl');
+const view = { w: 1, h: 1, dpr: 1, base: 1, scale: 1, z: 1, cx: 505, cy: 415, tz: 1, tcx: 505, tcy: 415, animating: false, dprCap: 2 };
 const WORLD = { w: 1000, h: 820 };
-view.dprCap = 2;
 function resize() {
   view.dpr = Math.min(view.dprCap, window.devicePixelRatio || 1); view.w = canvas.clientWidth; view.h = canvas.clientHeight;
-  canvas.width = Math.round(view.w * view.dpr); canvas.height = Math.round(view.h * view.dpr);
+  const pw = Math.round(view.w * view.dpr), ph = Math.round(view.h * view.dpr);
+  canvas.width = pw; canvas.height = ph; glCanvas.width = pw; glCanvas.height = ph;
   view.base = Math.min(view.w / WORLD.w, view.h / WORLD.h) * 0.97; view.scale = view.base * view.z;
+  // portrait phones: keep the brain in the upper part of the screen, clear of the panels
+  const homeY = view.h > view.w * 1.25 ? 415 + Math.min(260, (view.h - view.w * 0.82) / view.base * 0.22) : 415;
+  if (!view.touched) { view.cy = homeY; view.tcy = homeY; } view.homeY = homeY;
 }
 window.addEventListener('resize', resize); resize();
 function clampCam() { view.cx = clamp(view.cx, 60, 940); view.cy = clamp(view.cy, 60, 760); view.z = clamp(view.z, 1, 18); view.scale = view.base * view.z; }
 function toWorld(sx, sy) { return [view.cx + (sx - view.w / 2) / view.scale, view.cy + (sy - view.h / 2) / view.scale]; }
-function zoomAt(factor, sx, sy) { const [wx, wy] = toWorld(sx, sy); view.z = clamp(view.z * factor, 1, 18); view.scale = view.base * view.z; view.cx = wx - (sx - view.w / 2) / view.scale; view.cy = wy - (sy - view.h / 2) / view.scale; view.animating = false; clampCam(); }
-function flyTo(cx, cy, z) { view.tcx = cx; view.tcy = cy; view.tz = z; view.animating = true; }
+function zoomAt(factor, sx, sy) { view.touched = true; const [wx, wy] = toWorld(sx, sy); view.z = clamp(view.z * factor, 1, 18); view.scale = view.base * view.z; view.cx = wx - (sx - view.w / 2) / view.scale; view.cy = wy - (sy - view.h / 2) / view.scale; view.animating = false; clampCam(); }
+function flyTo(cx, cy, z) { view.touched = true; view.tcx = cx; view.tcy = cy; view.tz = z; view.animating = true; }
+function goHome() { flyTo(505, view.homeY || 415, 1); }
 
+// ---- colour helpers ----
 const colorCache = new Map();
 function hsl(h, s, l) { const hq = ((h % 360 + 360) % 360 / 3) | 0, sq = (clamp(s, 0, 100) / 5) | 0, lq = (clamp(l, 0, 100) / 2) | 0; const key = hq * 100000 + sq * 1000 + lq; let v = colorCache.get(key); if (!v) { v = `hsl(${hq * 3},${sq * 5}%,${lq * 2}%)`; colorCache.set(key, v); } return v; }
+const rgbTmp = [0, 0, 0];
+function hslRgb(h, s, l) { // h 0..360, s,l 0..100 -> rgbTmp 0..1
+  h = ((h % 360) + 360) % 360 / 360; s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100;
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  for (let k = 0; k < 3; k++) { let t = h + (1 - k) / 3; if (t < 0) t += 1; if (t > 1) t -= 1; rgbTmp[k] = t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }
+  return rgbTmp;
+}
 const sprites = new Map();
 function glowSprite(h) {
   const b = ((h % 360 + 360) % 360 / 12) | 0; let s = sprites.get(b);
   if (!s) { s = document.createElement('canvas'); s.width = s.height = 64; const c = s.getContext('2d'); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, `hsla(${b * 12},90%,72%,1)`); g.addColorStop(0.25, `hsla(${b * 12},90%,65%,.45)`); g.addColorStop(1, `hsla(${b * 12},90%,60%,0)`); c.fillStyle = g; c.fillRect(0, 0, 64, 64); sprites.set(b, s); }
   return s;
 }
-// low-resolution additive glow layer (glows are soft, so a third of the resolution is plenty and far cheaper)
+
+// ---- WebGL point-cloud layer ----
+let gl = null, glProg = null, glBuf = null, glLoc = null, glMaxPt = 64;
+const NPATH = paths.reduce((s, p) => s + p.pts.length, 0);
+const CAP = ND + NPATH + 4096;
+const ptData = new Float32Array(CAP * 7), blData = new Float32Array(CAP * 7);
+let nPt = 0, nBl = 0;
+const extraGlow = []; // soft glow requests from the 2D pass (sparks, receptor flashes)
+function initGL() {
+  try { gl = glCanvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' }); } catch (e) { gl = null; }
+  if (!gl) return;
+  const vs = 'attribute vec2 aPos;attribute vec4 aCol;attribute float aSize;uniform vec2 uScale;uniform vec2 uOff;varying vec4 vCol;void main(){gl_Position=vec4(aPos*uScale+uOff,0.0,1.0);gl_PointSize=aSize;vCol=aCol;}';
+  const fs = 'precision mediump float;varying vec4 vCol;uniform float uSoft;void main(){vec2 d=gl_PointCoord-0.5;float r=length(d)*2.0;float a=uSoft>0.5?pow(max(0.0,1.0-r),2.2):1.0-smoothstep(0.75,1.0,r);gl_FragColor=vec4(vCol.rgb*vCol.a*a,vCol.a*a);}';
+  const mk = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  try {
+    glProg = gl.createProgram(); gl.attachShader(glProg, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(glProg, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(glProg);
+    if (!gl.getProgramParameter(glProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(glProg));
+  } catch (e) { gl = null; return; }
+  gl.useProgram(glProg);
+  glLoc = { aPos: gl.getAttribLocation(glProg, 'aPos'), aCol: gl.getAttribLocation(glProg, 'aCol'), aSize: gl.getAttribLocation(glProg, 'aSize'), uScale: gl.getUniformLocation(glProg, 'uScale'), uOff: gl.getUniformLocation(glProg, 'uOff'), uSoft: gl.getUniformLocation(glProg, 'uSoft') };
+  glBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, glBuf);
+  gl.enableVertexAttribArray(glLoc.aPos); gl.enableVertexAttribArray(glLoc.aCol); gl.enableVertexAttribArray(glLoc.aSize);
+  gl.vertexAttribPointer(glLoc.aPos, 2, gl.FLOAT, false, 28, 0); gl.vertexAttribPointer(glLoc.aCol, 4, gl.FLOAT, false, 28, 8); gl.vertexAttribPointer(glLoc.aSize, 1, gl.FLOAT, false, 28, 24);
+  glMaxPt = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1] || 64;
+  gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+}
+glCanvas.addEventListener('webglcontextlost', e => { e.preventDefault(); gl = null; });
+glCanvas.addEventListener('webglcontextrestored', () => initGL());
+initGL();
+function pushPt(buf, n, x, y, r, g, b, a, size) { const o = n * 7; buf[o] = x; buf[o + 1] = y; buf[o + 2] = r; buf[o + 3] = g; buf[o + 4] = b; buf[o + 5] = a; buf[o + 6] = size > glMaxPt ? glMaxPt : size; }
+function glow(h, x, y, r, alpha) { if (alpha <= 0.01) return; if (gl) { extraGlow.push(h, x, y, r, alpha); return; } gctx.globalAlpha = Math.min(1, alpha); gctx.drawImage(glowSprite(h), x - r, y - r, r * 2, r * 2); }
+
+function buildCloud(now, F) {
+  const modeHue = 262 + 136 * brain.modeMix, spec = F.spec, und = brain.undPhase;
+  const zf = Math.pow(view.z, -0.35), gz = Math.pow(view.z, -0.5), sc = view.scale * view.dpr, ga = Math.min(1, 1.3 * gz);
+  const drift = REDUCED ? 0 : 0.7;
+  nPt = 0; nBl = 0;
+  for (const r of regions) {
+    const a0 = brain.act[r.i], fl = brain.flash[r.i], fh = brain.flashHue[r.i];
+    const baseHue = r.limbic ? lerpHue(modeHue + r.hueOff, r.hue, 0.25) : r.hue;
+    const isAud = r.id === 'auditory', undA = (r.limbic || r.id === 'accumbens') ? 0.2 : 0.06, undW = r.limbic ? 1 : 2.2;
+    const flHue = fl > 0.04 && fh >= 0 ? lerpHue(baseHue, fh, clamp(fl, 0, 1) * 0.85) : baseHue;
+    for (let i = r.start; i < r.end; i++) {
+      let a = a0; const ph = D.phase[i];
+      if (isAud) a += spec[(D.u[i] * 63) | 0] * 0.95;
+      const sn = Math.sin(und * undW + ph + D.u[i] * 2.5);
+      a += undA * sn * (0.4 + 0.6 * a0);
+      a += fl * (0.65 + 0.35 * Math.sin(ph * 3 + now * 9));
+      if (a < 0) a = 0; if (a > 1.1) a = 1.1; D.a[i] = a; D.hue[i] = flHue;
+      const tone = D.tone[i];
+      const c = hslRgb(flHue, r.sat + 8 * a - 10 * Math.max(0, tone), Math.min(86, r.light - 24 + tone * 13 + a * 30));
+      const jx = drift * (0.3 + a) * Math.sin(now * 0.6 + ph * 7), jy = drift * (0.3 + a) * Math.cos(now * 0.45 + ph * 5);
+      const x = D.x[i] + jx, y = D.y[i] + jy, size = D.size[i];
+      pushPt(ptData, nPt++, x, y, c[0], c[1], c[2], 0.42 + 0.58 * Math.min(1, a), Math.max(1.6, 2 * size * (1 + 0.25 * a) * zf * sc));
+      if (a > 0.36) pushPt(blData, nBl++, x, y, c[0], c[1], c[2], (a - 0.36) * 0.55 * ga, 2 * size * (3.2 + 4.5 * a) * gz * sc);
+    }
+  }
+  for (const p of paths) {
+    const h = p.hue, pts = p.pts, gl_ = p.glow;
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i], g = gl_[i]; const c = hslRgb(h, 60 + 30 * g, 42 + 36 * g);
+      pushPt(ptData, nPt++, q.x, q.y, c[0], c[1], c[2], 0.22 + 0.78 * Math.min(1, g), Math.max(1.2, 2 * q.r * (1 + 0.5 * g) * zf * sc));
+      if (g > 0.15) pushPt(blData, nBl++, q.x, q.y, c[0], c[1], c[2], g * 0.6, (10 + 14 * g) * gz * sc);
+    }
+  }
+  for (const pu of brain.pulses) {
+    const pts = pu.p.pts, q = pts[clamp(Math.round(pu.t * (pts.length - 1)), 0, pts.length - 1)]; const c = hslRgb(pu.p.hue, 85, 65);
+    pushPt(blData, nBl++, q.x, q.y, c[0], c[1], c[2], 0.9 * pu.i, (18 + 22 * pu.i) * gz * sc);
+    const w = hslRgb(pu.p.hue, 60, 92); pushPt(ptData, nPt++, q.x, q.y, w[0], w[1], w[2], 1, Math.max(2, 2 * (1.8 + pu.i) * zf * sc));
+  }
+  for (let k = 0; k < extraGlow.length; k += 5) { const c = hslRgb(extraGlow[k], 90, 68); pushPt(blData, nBl++, extraGlow[k + 1], extraGlow[k + 2], c[0], c[1], c[2], extraGlow[k + 4] * 0.9, 2 * extraGlow[k + 3] * sc * 1.2); }
+  extraGlow.length = 0;
+}
+function drawGL() {
+  gl.viewport(0, 0, glCanvas.width, glCanvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  const sx = 2 * view.scale / view.w, sy = -2 * view.scale / view.h;
+  gl.uniform2f(glLoc.uScale, sx, sy); gl.uniform2f(glLoc.uOff, -view.cx * sx, -view.cy * sy);
+  gl.bindBuffer(gl.ARRAY_BUFFER, glBuf);
+  gl.uniform1f(glLoc.uSoft, 1); gl.bufferData(gl.ARRAY_BUFFER, blData.subarray(0, nBl * 7), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, nBl);
+  gl.uniform1f(glLoc.uSoft, 0); gl.bufferData(gl.ARRAY_BUFFER, ptData.subarray(0, nPt * 7), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, nPt);
+}
+
+// ---- 2D fallback for the clouds (used only without WebGL) ----
 const glowLayer = document.createElement('canvas'); const gctx = glowLayer.getContext('2d'); const GL = 3;
+const blurLayer = document.createElement('canvas'); const bctx = blurLayer.getContext('2d'); const HAS_FILTER = 'filter' in bctx;
 function beginGlow() {
   const gw = Math.max(1, Math.ceil(canvas.width / GL)), gh = Math.max(1, Math.ceil(canvas.height / GL));
   if (glowLayer.width !== gw || glowLayer.height !== gh) { glowLayer.width = gw; glowLayer.height = gh; }
@@ -669,22 +823,20 @@ function beginGlow() {
   const sc = view.scale * view.dpr / GL, ox = (view.w / 2 - view.cx * view.scale) * view.dpr / GL, oy = (view.h / 2 - view.cy * view.scale) * view.dpr / GL;
   gctx.setTransform(sc, 0, 0, sc, ox, oy);
 }
-function glow(h, x, y, r, alpha) { if (alpha <= 0.01) return; gctx.globalAlpha = Math.min(1, alpha); gctx.drawImage(glowSprite(h), x - r, y - r, r * 2, r * 2); }
-const blurLayer = document.createElement('canvas'); const bctx = blurLayer.getContext('2d'); const HAS_FILTER = 'filter' in bctx;
 function endGlow() {
   let src = glowLayer;
-  if (HAS_FILTER) {
-    const gw = glowLayer.width, gh = glowLayer.height; if (blurLayer.width !== gw || blurLayer.height !== gh) { blurLayer.width = gw; blurLayer.height = gh; }
-    bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.globalCompositeOperation = 'copy'; bctx.globalAlpha = 1; bctx.filter = 'blur(' + (2.6 * Math.pow(view.z, -0.25)).toFixed(2) + 'px)'; bctx.drawImage(glowLayer, 0, 0); bctx.filter = 'none'; src = blurLayer;
-  }
+  if (HAS_FILTER) { const gw = glowLayer.width, gh = glowLayer.height; if (blurLayer.width !== gw || blurLayer.height !== gh) { blurLayer.width = gw; blurLayer.height = gh; } bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.globalCompositeOperation = 'copy'; bctx.globalAlpha = 1; bctx.filter = 'blur(' + (2.6 * Math.pow(view.z, -0.25)).toFixed(2) + 'px)'; bctx.drawImage(glowLayer, 0, 0); bctx.filter = 'none'; src = blurLayer; }
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
 }
-let bgGrad = null, bgKey = '';
-function drawBackground() {
-  const key = view.w + 'x' + view.h;
-  if (key !== bgKey) { bgKey = key; bgGrad = ctx.createRadialGradient(view.w * 0.5, view.h * 0.45, 10, view.w * 0.5, view.h * 0.45, Math.max(view.w, view.h) * 0.7); bgGrad.addColorStop(0, '#0a1020'); bgGrad.addColorStop(1, '#04060b'); }
-  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, view.w, view.h);
+function drawClouds2D(now, F) {
+  buildCloud(now, F); // reuse the same per-dot colours
+  ctx.globalCompositeOperation = 'lighter'; const sc = view.scale * view.dpr;
+  for (let i = 0; i < nPt; i++) { const o = i * 7; ctx.fillStyle = `rgb(${(ptData[o + 2] * 255) | 0},${(ptData[o + 3] * 255) | 0},${(ptData[o + 4] * 255) | 0})`; ctx.globalAlpha = ptData[o + 5]; ctx.beginPath(); ctx.arc(ptData[o], ptData[o + 1], ptData[o + 6] / sc / 2, 0, TAU); ctx.fill(); }
+  for (let i = 0; i < nBl; i++) { const o = i * 7; gctx.globalAlpha = blData[o + 5]; gctx.fillStyle = `rgb(${(blData[o + 2] * 255) | 0},${(blData[o + 3] * 255) | 0},${(blData[o + 4] * 255) | 0})`; gctx.beginPath(); gctx.arc(blData[o], blData[o + 1], blData[o + 6] / sc / 3, 0, TAU); gctx.fill(); }
+  ctx.globalAlpha = 1;
 }
+
+// ---- skull, synapses, labels, neuron detail (2D) ----
 const skullPoly = catmull(SKULL.outline, true, 10), mandiblePoly = catmull(SKULL.mandible, false, 8), zygPoly = catmull(SKULL.zygomatic, false, 8);
 function tracePoly(poly, close) { ctx.beginPath(); ctx.moveTo(poly[0][0], poly[0][1]); for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]); if (close) ctx.closePath(); }
 function drawSkull(front) {
@@ -706,75 +858,15 @@ function drawSkull(front) {
   for (let i = 0; i < t.n; i++) { const x = t.x0 + i * tw + 1.5; ctx.beginPath(); ctx.roundRect(x, t.y - 11, tw - 3, 11, 2); ctx.stroke(); ctx.beginPath(); ctx.roundRect(x + 2, t.y + 2, tw - 3, 10, 2); ctx.stroke(); }
   ctx.globalAlpha = 1;
 }
-function drawPathways(now) {
-  ctx.globalCompositeOperation = 'lighter'; const gz = Math.pow(view.z, -0.5), zf = Math.pow(view.z, -0.35);
-  for (const p of paths) {
-    const h = p.hue, pts = p.pts, gl = p.glow;
-    for (let i = 0; i < pts.length; i++) {
-      const q = pts[i], g = gl[i], a = 0.22 + 0.78 * Math.min(1, g);
-      ctx.globalAlpha = a; ctx.fillStyle = hsl(h, 60 + 30 * g, 42 + 36 * g); ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 + 0.5 * g) * zf, 0, TAU); ctx.fill();
-      if (g > 0.15) glow(h, q.x, q.y, (6 + 9 * g) * gz, g * 0.75);
-    }
-  }
-  for (const pu of brain.pulses) {
-    const pts = pu.p.pts; const idx = clamp(Math.round(pu.t * (pts.length - 1)), 0, pts.length - 1); const q = pts[idx]; const gr = 9 + 11 * pu.i;
-    glow(pu.p.hue, q.x, q.y, gr * gz, 0.9 * pu.i);
-    ctx.globalAlpha = 1; ctx.fillStyle = hsl(pu.p.hue, 60, 92); ctx.beginPath(); ctx.arc(q.x, q.y, (1.8 + pu.i) * zf, 0, TAU); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
 const CONN_HUE = { melody: 172, chord: 48, sample: 305 };
 function drawConnections(now) {
   ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; const zf = Math.pow(view.z, -0.35);
   for (const c of brain.conns) {
     const ax = D.x[c.a], ay = D.y[c.a], bx = D.x[c.b], by = D.y[c.b]; const mx = (ax + bx) / 2, my = (ay + by) / 2; const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1; const cxp = mx - dy / L * c.bend, cyp = my + dx / L * c.bend;
     const h = CONN_HUE[c.kind] || 200;
-    ctx.globalAlpha = 0.12 + 0.5 * c.s; ctx.strokeStyle = hsl(h, 70, 60 + 15 * c.s); ctx.lineWidth = (0.7 + 1.3 * c.s) * zf;
+    ctx.globalAlpha = 0.12 + 0.5 * c.s; ctx.strokeStyle = hsl(h, 70, 60 + 15 * c.s); ctx.lineWidth = (0.7 + 1.3 * c.s) * zf * zf;
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp, bx, by); ctx.stroke();
-    if (c.spark >= 0) { const t = c.spark, u = 1 - t; const sx = u * u * ax + 2 * u * t * cxp + t * t * bx, sy = u * u * ay + 2 * u * t * cyp + t * t * by; glow(h, sx, sy, 10 * Math.pow(view.z, -0.5), 0.9); ctx.globalAlpha = 0.9; ctx.fillStyle = hsl(h, 60, 95); ctx.beginPath(); ctx.arc(sx, sy, 1.8 * Math.pow(view.z, -0.35), 0, TAU); ctx.fill(); }
-  }
-  ctx.globalAlpha = 1;
-}
-const keyBuf = new Int32Array(ND); const styleCache = new Map();
-function dotStyle(k) { let s = styleCache.get(k); if (!s) { const lq = k % 51, rest = (k - lq) / 51, sq = rest % 21, hq = (rest - sq) / 21; s = `hsl(${hq * 3},${sq * 5}%,${lq * 2}%)`; styleCache.set(k, s); } return s; }
-function drawDots(now, F, active) {
-  const modeHue = 262 + 136 * brain.modeMix, spec = F.spec, und = brain.undPhase;
-  const zf = Math.pow(view.z, -0.35), gz = Math.pow(view.z, -0.5);
-  // pass 1: activation and colour key per dot
-  for (const r of regions) {
-    const a0 = brain.act[r.i], fl = brain.flash[r.i], fh = brain.flashHue[r.i];
-    const baseHue = r.limbic ? lerpHue(modeHue + r.hueOff, r.hue, 0.25) : r.hue;
-    const isAud = r.id === 'auditory', undA = (r.limbic || r.id === 'accumbens') ? 0.2 : 0.06, undW = r.limbic ? 1 : 2.2;
-    const flHue = fl > 0.04 && fh >= 0 ? lerpHue(baseHue, fh, clamp(fl, 0, 1) * 0.85) : baseHue;
-    const hq = ((flHue % 360 + 360) % 360 / 3) | 0;
-    for (let i = r.start; i < r.end; i++) {
-      let a = a0;
-      if (isAud) a += spec[(D.u[i] * 63) | 0] * 0.95;
-      a += undA * Math.sin(und * undW + D.phase[i] + D.u[i] * 2.5) * (0.4 + 0.6 * a0);
-      a += fl * (0.65 + 0.35 * Math.sin(D.phase[i] * 3 + now * 9));
-      if (a < 0) a = 0; if (a > 1.1) a = 1.1; D.a[i] = a; D.hue[i] = flHue;
-      const tone = D.tone[i];
-      const sq = clamp((r.sat + 8 * a - 10 * Math.max(0, tone)) / 5, 0, 20) | 0, lq = clamp((r.light - 24 + tone * 13 + a * 30) / 2, 0, 44) | 0;
-      keyBuf[i] = (hq * 21 + sq) * 51 + lq;
-    }
-  }
-  // pass 2: one fill per colour on the main canvas, and one bloom fill per colour on the low-res layer
-  const buckets = new Map();
-  for (let i = 0; i < ND; i++) { const k = keyBuf[i]; let arr = buckets.get(k); if (!arr) { arr = []; buckets.set(k, arr); } arr.push(i); }
-  ctx.globalCompositeOperation = 'lighter';
-  const ga = Math.min(1, 1.3 * gz);
-  for (const [k, arr] of buckets) {
-    const style = dotStyle(k), i0 = arr[0], a0 = D.a[i0];
-    ctx.fillStyle = style; ctx.beginPath();
-    for (let j = 0; j < arr.length; j++) { const i = arr[j], rr = D.size[i] * (1 + 0.25 * D.a[i]) * zf, x = D.x[i], y = D.y[i]; ctx.moveTo(x + rr, y); ctx.arc(x, y, rr, 0, TAU); }
-    ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, a0); ctx.fill();
-    if (a0 > 0.36) {
-      if (HAS_FILTER) {
-        gctx.fillStyle = style; gctx.globalAlpha = (a0 - 0.36) * 0.9 * ga; gctx.beginPath();
-        for (let j = 0; j < arr.length; j++) { const i = arr[j], rr = D.size[i] * (1.5 + 2.4 * D.a[i]) * gz, x = D.x[i], y = D.y[i]; gctx.moveTo(x + rr, y); gctx.arc(x, y, rr, 0, TAU); }
-        gctx.fill();
-      } else for (let j = 0; j < arr.length; j++) { const i = arr[j]; glow(D.hue[i], D.x[i], D.y[i], D.size[i] * (2.6 + 4 * D.a[i]) * gz, (a0 - 0.36) * 0.75 * ga); }
-    }
+    if (c.spark >= 0) { const t = c.spark, u = 1 - t; const sx = u * u * ax + 2 * u * t * cxp + t * t * bx, sy = u * u * ay + 2 * u * t * cyp + t * t * by; glow(h, sx, sy, 10 * Math.pow(view.z, -0.5), 0.9); ctx.globalAlpha = 0.9; ctx.fillStyle = hsl(h, 60, 95); ctx.beginPath(); ctx.arc(sx, sy, 1.8 * zf, 0, TAU); ctx.fill(); }
   }
   ctx.globalAlpha = 1;
 }
@@ -794,7 +886,7 @@ function drawLabels() {
     ctx.fillStyle = `rgba(215,228,255,${al})`; ctx.fillText(r.name, lx, ly);
   }
 }
-// ---- receptor-level detail when zoomed in ----
+// receptor-level detail when zoomed in
 const details = new Map();
 function getDetail(i, now) {
   let d = details.get(i);
@@ -802,7 +894,7 @@ function getDetail(i, now) {
     const rng = mulberry32(D.seed[i]); const nd = 3 + Math.floor(rng() * 3); const dend = [];
     for (let k = 0; k < nd; k++) dend.push({ a: rng() * TAU, l: 4 + rng() * 5, c: (rng() - 0.5) * 1.4 });
     const nr = 4 + Math.floor(rng() * 3);
-    d = { dend, ax: rng() * TAU, nr, rec: new Float32Array(nr), parts: [], seen: now, acc: rng(), rng };
+    d = { dend, ax: rng() * TAU, nr, rec: new Float32Array(nr), parts: [], seen: now, acc: rng() };
     details.set(i, d);
   }
   d.seen = now; return d;
@@ -815,27 +907,24 @@ function recGlyph(nt, x, y, s, ang) {
   else { const c = Math.cos(ang), sn = Math.sin(ang); ctx.moveTo(x - sn * s, y + c * s); ctx.lineTo(x + sn * s, y - c * s); }
 }
 function drawDetails(now, dt) {
-  const z = view.z, fade = smoothstep(2.6, 4.0, z); if (fade <= 0) return; const zf = Math.pow(z, -0.35) * 1.35;
+  const z = view.z, fade = smoothstep(2.6, 4.0, z); if (fade <= 0) return; const zf = Math.pow(z, -0.35) * 1.5;
   const [x0, y0] = toWorld(0, 0), [x1, y1] = toWorld(view.w, view.h); const mcx = (x0 + x1) / 2, mcy = (y0 + y1) / 2; const maxD = Math.hypot(x1 - x0, y1 - y0) / 2;
   const vis = [];
   for (let i = 0; i < ND; i++) { const x = D.x[i], y = D.y[i]; if (x < x0 - 12 || x > x1 + 12 || y < y0 - 12 || y > y1 + 12) continue; vis.push(i); }
-  if (vis.length > 240) { vis.sort((a, b) => ((D.x[a] - mcx) ** 2 + (D.y[a] - mcy) ** 2) - ((D.x[b] - mcx) ** 2 + (D.y[b] - mcy) ** 2)); vis.length = 240; }
+  if (vis.length > 260) { vis.sort((a, b) => ((D.x[a] - mcx) ** 2 + (D.y[a] - mcy) ** 2) - ((D.x[b] - mcx) ** 2 + (D.y[b] - mcy) ** 2)); vis.length = 260; }
   ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const i of vis) {
     const r = regions[D.reg[i]], nt = r.nt, ntc = NT[nt], d = getDetail(i, now);
     const x = D.x[i], y = D.y[i], Rr = D.size[i] * 1.5 * zf, a = D.a[i], hue = D.hue[i];
-    const focus = 1 - smoothstep(0.55, 1, Math.hypot(x - mcx, y - mcy) / maxD); const al = fade * focus; if (al <= 0.02) continue;
-    // dendrites
+    const focus = 1 - smoothstep(0.55, 1, Math.hypot(x - mcx, y - mcy) / maxD); const al = fade * focus; if (al <= 0.03) continue;
     ctx.strokeStyle = hsl(hue, 50, 62); ctx.lineWidth = 0.4; ctx.globalAlpha = al * (0.3 + 0.3 * a);
     for (const dn of d.dend) { const dl = dn.l * zf; const ex = x + Math.cos(dn.a) * (Rr + dl), ey = y + Math.sin(dn.a) * (Rr + dl); const cxp = x + Math.cos(dn.a + dn.c) * (Rr + dl * 0.55), cyp = y + Math.sin(dn.a + dn.c) * (Rr + dl * 0.55); ctx.beginPath(); ctx.moveTo(x + Math.cos(dn.a) * Rr * 0.9, y + Math.sin(dn.a) * Rr * 0.9); ctx.quadraticCurveTo(cxp, cyp, ex, ey); ctx.stroke(); }
-    // presynaptic bouton + axon
     const bx = x + Math.cos(d.ax) * Rr * 3.4, by = y + Math.sin(d.ax) * Rr * 3.4, br = Rr * 0.85;
     ctx.strokeStyle = hsl(ntc.hue, 60, 60); ctx.lineWidth = 0.5; ctx.globalAlpha = al * 0.35;
     ctx.beginPath(); ctx.moveTo(bx + Math.cos(d.ax) * br, by + Math.sin(d.ax) * br); ctx.lineTo(bx + Math.cos(d.ax) * (br + Rr * 2.4), by + Math.sin(d.ax) * (br + Rr * 2.4)); ctx.stroke();
     ctx.fillStyle = hsl(ntc.hue, 70, 55); ctx.globalAlpha = al * 0.28; ctx.beginPath(); ctx.arc(bx, by, br, 0, TAU); ctx.fill();
     ctx.globalAlpha = al * 0.9; ctx.fillStyle = hsl(ntc.hue, 85, 72);
     for (let k = 0; k < 3; k++) { const a2 = d.ax + Math.PI + (k - 1) * 0.9, rr = br * 0.45; ctx.beginPath(); ctx.arc(bx + Math.cos(a2) * rr, by + Math.sin(a2) * rr, br * 0.16, 0, TAU); ctx.fill(); }
-    // postsynaptic membrane with receptors
     const mr = Rr * 1.25, spread = 1.25;
     ctx.strokeStyle = hsl(hue, 50, 70); ctx.lineWidth = 0.35; ctx.globalAlpha = al * 0.45; ctx.beginPath(); ctx.arc(x, y, mr, d.ax - spread * 0.62, d.ax + spread * 0.62); ctx.stroke();
     const recAct = brain.recept[r.i] + (nt === 'glu' ? Math.max(0, a - 0.3) * 1.5 : 0);
@@ -847,8 +936,7 @@ function drawDetails(now, dt) {
       ctx.lineWidth = 0.45 + 0.35 * g; ctx.strokeStyle = hsl(ntc.hue, 80, 60 + 30 * g); ctx.globalAlpha = al * (0.45 + 0.55 * g); recGlyph(nt, rx, ry, gs, ang); ctx.stroke();
       if (g > 0.05) glow(ntc.hue, rx, ry, Rr * (0.9 + 1.4 * g), al * g * 0.9);
     }
-    // molecules crossing the cleft
-    if (!REDUCED || recAct > 0.6) { d.acc += dt * (0.25 + 4.5 * recAct); while (d.acc > 1) { d.acc -= 1; if (d.parts.length < 6) d.parts.push({ k: Math.floor(Math.random() * d.nr), t: 0, st: 0, dock: 0, sp: 2.2 + Math.random() * 1.2, wob: Math.random() * TAU }); } }
+    if ((!REDUCED || recAct > 0.6) && al > 0.2) { d.acc += dt * (0.25 + 4.5 * recAct); while (d.acc > 1) { d.acc -= 1; if (d.parts.length < 6) d.parts.push({ k: Math.floor(Math.random() * d.nr), t: 0, st: 0, dock: 0, sp: 2.2 + Math.random() * 1.2, wob: Math.random() * TAU }); } }
     for (let j = d.parts.length - 1; j >= 0; j--) {
       const pt = d.parts[j], [rx, ry] = recPos[pt.k];
       if (pt.st === 0) { pt.t += dt * pt.sp; if (pt.t >= 1) { pt.t = 1; pt.st = 1; pt.dock = 0; d.rec[pt.k] = 1; } }
@@ -864,67 +952,128 @@ function drawDetails(now, dt) {
 }
 function render(now, dt, F, active) {
   const { w, h, dpr } = view;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-  drawBackground();
   const sc = view.scale, ox = w / 2 - view.cx * sc, oy = h / 2 - view.cy * sc;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
-  beginGlow();
   drawSkull(false);
-  drawPathways(now);
-  drawConnections(now);
-  drawDots(now, F, active);
-  drawDetails(now, dt);
-  endGlow();
-  ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+  if (gl) {
+    drawConnections(now); drawDetails(now, dt);   // these queue glows for the GL pass
+    buildCloud(now, F); drawGL();
+  } else {
+    beginGlow(); drawClouds2D(now, F); drawConnections(now); drawDetails(now, dt); endGlow();
+    ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+  }
   drawSkull(true);
   drawLabels();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 // ---------- audio engine ----------
-const audio = { ac: null, an: null, monitor: null, F: null, source: 'none', node: null, stream: null, el: null, elNode: null, demo: null, fileName: '' };
+const audio = { ac: null, an: null, monitor: null, F: null, source: 'none', node: null, el: null, elNode: null, demo: null, volume: 0.9 };
 function ensureContext() {
   if (audio.ac) { if (audio.ac.state === 'suspended') audio.ac.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC();
   const an = ac.createAnalyser(); an.fftSize = 4096; an.smoothingTimeConstant = 0; an.minDecibels = -110; an.maxDecibels = -10;
-  const monitor = ac.createGain(); monitor.gain.value = 1; an.connect(monitor); monitor.connect(ac.destination);
+  const monitor = ac.createGain(); monitor.gain.value = audio.volume; an.connect(monitor); monitor.connect(ac.destination);
   audio.ac = ac; audio.an = an; audio.monitor = monitor; audio.F = new Features(ac, an);
 }
-function stopSource() {
+function stopSource(keepTrack) {
   if (audio.node) { try { audio.node.disconnect(); } catch (e) { } }
-  if (audio.stream) { audio.stream.getTracks().forEach(t => t.stop()); audio.stream = null; }
   if (audio.el) { audio.el.pause(); }
   if (audio.demo) { audio.demo.stop(); audio.demo = null; }
   audio.node = null; audio.source = 'none';
-  if (audio.F) { audio.F.bpm = 0; audio.F.bpmConf = 0; audio.F.anchor = -1; audio.F.onsets.length = 0; audio.F.startT = -1; }
+  if (audio.F) audio.F.resetTrack();
+  if (!keepTrack) { lib.index = -1; }
   ui.setSource('none');
 }
-async function startMic() {
-  ensureContext(); stopSource();
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('This browser does not expose a microphone here. Upload a track or run the demo loop.'); return; }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
-    audio.stream = stream; audio.node = audio.ac.createMediaStreamSource(stream); audio.node.connect(audio.an); audio.monitor.gain.value = 0; audio.source = 'mic';
-    ui.setSource('mic'); toast('Listening. Play music near the microphone.');
-  } catch (err) {
-    const name = err && err.name || '';
-    toast(name === 'NotAllowedError' || name === 'SecurityError' ? 'Microphone access was refused in this view. Upload a track or run the demo loop instead.' : 'Could not open the microphone (' + (name || 'unknown error') + '). Upload a track or run the demo loop instead.');
+function isActive() { if (audio.source === 'none') return false; if (audio.source === 'file') return !!audio.el && !audio.el.paused && !audio.el.ended; return true; }
+
+// ---------- library (persisted in IndexedDB so the app keeps your tracks) ----------
+const LibDB = {
+  ready: null,
+  open() {
+    if (this.ready) return this.ready;
+    this.ready = new Promise(res => { try { if (!('indexedDB' in window)) return res(null); const rq = indexedDB.open('neural-resonance', 1); rq.onupgradeneeded = () => { rq.result.createObjectStore('tracks', { keyPath: 'id', autoIncrement: true }); }; rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); rq.onblocked = () => res(null); } catch (e) { res(null); } });
+    return this.ready;
+  },
+  async tx(mode, fn) { const db = await this.open(); if (!db) return null; return new Promise(res => { try { const t = db.transaction('tracks', mode); const rq = fn(t.objectStore('tracks')); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } }); },
+  all() { return this.tx('readonly', s => s.getAll()); },
+  add(rec) { return this.tx('readwrite', s => s.add(rec)); },
+  put(rec) { return this.tx('readwrite', s => s.put(rec)); },
+  remove(id) { return this.tx('readwrite', s => s.delete(id)); },
+  clear() { return this.tx('readwrite', s => s.clear()); },
+};
+const lib = { tracks: [], index: -1, shuffle: false, repeat: 'off', history: [], persistent: true };
+try { lib.shuffle = localStorage.getItem('nr.shuffle') === '1'; lib.repeat = localStorage.getItem('nr.repeat') || 'off'; const v = parseFloat(localStorage.getItem('nr.volume')); if (!isNaN(v)) audio.volume = clamp(v, 0, 1); } catch (e) { }
+function trackTitle(t) { return t.name.replace(/\.[a-z0-9]{2,5}$/i, ''); }
+async function addTracks(files, autoplay) {
+  const added = [];
+  for (const f of files) {
+    if (!(f.type.startsWith('audio') || /\.(mp3|wav|ogg|oga|flac|m4a|aac|opus|webm|aif|aiff)$/i.test(f.name))) continue;
+    const rec = { name: f.name, type: f.type, size: f.size, blob: f, added: Date.now(), duration: 0 };
+    let id = await LibDB.add(rec);
+    if (id == null) { lib.persistent = false; id = 'm' + Math.random().toString(36).slice(2); }
+    rec.id = id; lib.tracks.push(rec); added.push(rec);
   }
+  if (!added.length) { toast('No audio files in that selection.'); return; }
+  ui.renderLibrary();
+  if (!lib.persistent) toast('This browser will not keep the library between visits, but playback works.');
+  if (autoplay || !isActive()) playIndex(lib.tracks.indexOf(added[0]));
+  else toast(added.length === 1 ? 'Added to the library.' : 'Added ' + added.length + ' tracks to the library.');
 }
-function startFile(file) {
-  ensureContext(); stopSource();
-  if (!audio.el) { audio.el = new Audio(); audio.el.preload = 'auto'; audio.elNode = audio.ac.createMediaElementSource(audio.el); audio.el.addEventListener('ended', () => ui.setPlaying(false)); audio.el.addEventListener('timeupdate', ui.updateTime); audio.el.addEventListener('loadedmetadata', ui.updateTime); }
+async function restoreLibrary() {
+  const rows = await LibDB.all(); if (!rows) { lib.persistent = false; ui.renderLibrary(); return; }
+  rows.sort((a, b) => a.added - b.added); lib.tracks = rows; ui.renderLibrary();
+  if (rows.length) $('status').innerHTML = 'Library restored: <b>' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + '</b>. Press play on one to begin.';
+}
+function playIndex(i, fromHistory) {
+  if (i < 0 || i >= lib.tracks.length) return;
+  ensureContext(); stopSource(true);
+  if (!audio.el) {
+    audio.el = new Audio(); audio.el.preload = 'auto'; audio.elNode = audio.ac.createMediaElementSource(audio.el);
+    audio.el.addEventListener('ended', onEnded); audio.el.addEventListener('timeupdate', ui.updateTime); audio.el.addEventListener('pause', () => ui.setPlaying(false)); audio.el.addEventListener('play', () => ui.setPlaying(true));
+    audio.el.addEventListener('loadedmetadata', () => { ui.updateTime(); const t = lib.tracks[lib.index]; if (t && audio.el.duration && !t.duration) { t.duration = audio.el.duration; if (typeof t.id === 'number') LibDB.put(t); ui.renderLibrary(); } });
+    audio.el.addEventListener('error', () => toast('This file could not be decoded by the browser.'));
+  }
+  if (!fromHistory && lib.index >= 0) { lib.history.push(lib.index); if (lib.history.length > 64) lib.history.shift(); }
+  lib.index = i; const t = lib.tracks[i];
   if (audio.el.src && audio.el.src.startsWith('blob:')) URL.revokeObjectURL(audio.el.src);
-  audio.el.src = URL.createObjectURL(file); audio.fileName = file.name;
-  audio.node = audio.elNode; audio.node.connect(audio.an); audio.monitor.gain.value = 1; audio.source = 'file';
+  audio.el.src = URL.createObjectURL(t.blob);
+  audio.node = audio.elNode; audio.node.connect(audio.an); audio.source = 'file';
   audio.el.play().then(() => ui.setPlaying(true)).catch(() => { ui.setPlaying(false); toast('Press play to start the track.'); });
-  ui.setSource('file');
+  ui.setSource('file'); ui.renderLibrary(); ui.mediaSession();
 }
+function nextIndex(dir) {
+  const n = lib.tracks.length; if (!n) return -1;
+  if (lib.shuffle) { if (n === 1) return 0; let j; do { j = Math.floor(Math.random() * n); } while (j === lib.index); return j; }
+  const j = lib.index + dir;
+  if (j >= n) return lib.repeat === 'all' ? 0 : -1;
+  if (j < 0) return lib.repeat === 'all' ? n - 1 : -1;
+  return j;
+}
+function next() { const j = nextIndex(1); if (j >= 0) playIndex(j); else toast('End of the library.'); }
+function prev() {
+  if (audio.el && audio.el.currentTime > 4) { audio.el.currentTime = 0; return; }
+  if (lib.shuffle && lib.history.length) { playIndex(lib.history.pop(), true); return; }
+  const j = nextIndex(-1); if (j >= 0) playIndex(j); else if (audio.el) audio.el.currentTime = 0;
+}
+function onEnded() {
+  if (lib.repeat === 'one') { audio.el.currentTime = 0; audio.el.play(); return; }
+  const j = nextIndex(1);
+  if (j >= 0) playIndex(j); else { ui.setPlaying(false); $('status').innerHTML = 'Finished <b></b>'; $('status').querySelector('b').textContent = trackTitle(lib.tracks[lib.index]); }
+}
+async function removeTrack(i) {
+  const t = lib.tracks[i]; if (!t) return;
+  if (typeof t.id === 'number') await LibDB.remove(t.id);
+  lib.tracks.splice(i, 1); lib.history = [];
+  if (i === lib.index) { stopSource(); lib.index = -1; } else if (i < lib.index) lib.index--;
+  ui.renderLibrary();
+}
+async function clearLibrary() { await LibDB.clear(); stopSource(); lib.tracks = []; lib.index = -1; lib.history = []; ui.renderLibrary(); toast('Library cleared.'); }
 function startDemo() {
   ensureContext(); stopSource();
-  audio.demo = new Demo(audio.ac, audio.an); audio.node = audio.demo.out; audio.monitor.gain.value = 1; audio.source = 'demo'; audio.demo.start(); ui.setSource('demo');
+  audio.demo = new Demo(audio.ac, audio.an); audio.node = audio.demo.out; audio.source = 'demo'; audio.demo.start(); ui.setSource('demo'); ui.mediaSession();
 }
-function isActive() { if (audio.source === 'none') return false; if (audio.source === 'file') return !!audio.el && !audio.el.paused; return true; }
 
 // ---------- demo loop (synthesised) ----------
 class Demo {
@@ -967,34 +1116,77 @@ const $ = id => document.getElementById(id);
 const brain = new Brain();
 let toastTimer = 0;
 function toast(msg, ms = 4200) { const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, ms); }
+function fmt(s) { if (!isFinite(s) || s < 0) return '0:00'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 const ui = {
-  setSource(s) {
-    $('btnMic').classList.toggle('on', s === 'mic'); $('lblFile').classList.toggle('on', s === 'file'); $('btnDemo').classList.toggle('on', s === 'demo');
-    $('btnStop').hidden = s === 'none'; $('transport').hidden = s !== 'file';
-    const st = $('status');
-    st.innerHTML = s === 'mic' ? 'Listening to the <b>microphone</b>.' : s === 'file' ? 'Playing <b></b>' : s === 'demo' ? 'Playing the <b>demo loop</b>: four chords, a repeating motif, a tempo shift and a drop.' : 'Resting state. Pick a sound source to begin.';
-    if (s === 'file') { st.querySelector('b').textContent = audio.fileName; $('trackName').textContent = audio.fileName; }
-  },
-  setPlaying(p) { $('btnPlay').textContent = p ? '❚❚' : '▶'; $('btnPlay').setAttribute('aria-label', p ? 'Pause' : 'Play'); },
-  updateTime() { const el = audio.el; if (!el) return; const d = el.duration || 0, c = el.currentTime || 0; if (!ui.seeking) $('seek').value = d ? Math.round(c / d * 1000) : 0; $('time').textContent = fmt(c) + ' / ' + fmt(d); },
   seeking: false,
+  setSource(s) {
+    $('btnDemo').classList.toggle('on', s === 'demo'); $('btnStop').hidden = s === 'none'; $('transport').hidden = s !== 'file';
+    const st = $('status');
+    if (s === 'file') { const t = lib.tracks[lib.index]; st.innerHTML = 'Playing <b></b>'; st.querySelector('b').textContent = t ? trackTitle(t) : ''; $('trackName').textContent = t ? trackTitle(t) : ''; $('trackPos').textContent = (lib.index + 1) + ' of ' + lib.tracks.length; }
+    else if (s === 'demo') st.innerHTML = 'Playing the <b>demo loop</b>: four chords, a repeating motif, a tempo shift and a drop.';
+    else st.textContent = lib.tracks.length ? 'Paused. Pick a track from the library.' : 'Resting state. Add a track to begin.';
+  },
+  setPlaying(p) { $('btnPlay').textContent = p ? '❚❚' : '▶'; $('btnPlay').setAttribute('aria-label', p ? 'Pause' : 'Play'); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = p ? 'playing' : 'paused'; },
+  updateTime() { const el = audio.el; if (!el) return; const d = el.duration || 0, c = el.currentTime || 0; if (!ui.seeking) $('seek').value = d ? Math.round(c / d * 1000) : 0; $('time').textContent = fmt(c) + ' / ' + fmt(d); },
+  renderLibrary() {
+    const n = lib.tracks.length; $('libCount').textContent = n; $('libCount2').textContent = n; $('libEmpty').hidden = n > 0;
+    const ol = $('libList'); ol.textContent = '';
+    lib.tracks.forEach((t, i) => {
+      const li = document.createElement('li'); li.className = i === lib.index ? 'now' : ''; li.title = t.name;
+      li.innerHTML = '<span class="n"></span><span class="nm"></span><span class="d"></span><button class="rm" aria-label="Remove track">×</button>';
+      li.children[0].textContent = i === lib.index && isActive() ? '▶' : String(i + 1); li.children[1].textContent = trackTitle(t); li.children[2].textContent = t.duration ? fmt(t.duration) : '';
+      li.addEventListener('click', e => { if (e.target.classList.contains('rm')) return; playIndex(i); });
+      li.children[3].addEventListener('click', () => removeTrack(i));
+      ol.appendChild(li);
+    });
+    if (lib.index >= 0) $('trackPos').textContent = (lib.index + 1) + ' of ' + n;
+  },
+  mediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    const t = lib.tracks[lib.index]; const title = audio.source === 'demo' ? 'Demo loop' : t ? trackTitle(t) : 'Neural Resonance';
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'Neural Resonance', album: 'Library' }); } catch (e) { }
+  },
 };
-function fmt(s) { if (!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
-$('btnMic').addEventListener('click', startMic);
 $('btnDemo').addEventListener('click', startDemo);
-$('btnStop').addEventListener('click', stopSource);
-$('fileIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) startFile(f); e.target.value = ''; });
-$('btnPlay').addEventListener('click', () => { if (!audio.el) return; if (audio.el.paused) { ensureContext(); audio.el.play().then(() => ui.setPlaying(true)); } else { audio.el.pause(); ui.setPlaying(false); } });
+$('btnStop').addEventListener('click', () => stopSource());
+$('fileIn').addEventListener('change', e => { const fs = Array.from(e.target.files || []); if (fs.length) addTracks(fs, false); e.target.value = ''; });
+$('btnPlay').addEventListener('click', togglePlay);
+function togglePlay() { if (audio.source === 'file' && audio.el) { if (audio.el.paused) { ensureContext(); audio.el.play().catch(() => { }); } else audio.el.pause(); } else if (lib.tracks.length) playIndex(lib.index >= 0 ? lib.index : 0); }
+$('btnNext').addEventListener('click', next); $('btnPrev').addEventListener('click', prev);
 $('seek').addEventListener('input', () => { ui.seeking = true; if (audio.el && audio.el.duration) $('time').textContent = fmt($('seek').value / 1000 * audio.el.duration) + ' / ' + fmt(audio.el.duration); });
 $('seek').addEventListener('change', () => { ui.seeking = false; if (audio.el && audio.el.duration) audio.el.currentTime = $('seek').value / 1000 * audio.el.duration; });
+$('volume').value = audio.volume;
+$('volume').addEventListener('input', e => { audio.volume = parseFloat(e.target.value); if (audio.monitor) audio.monitor.gain.setTargetAtTime(audio.volume, audio.ac.currentTime, 0.02); try { localStorage.setItem('nr.volume', String(audio.volume)); } catch (err) { } });
+function syncModes() { $('btnShuffle').setAttribute('aria-pressed', String(lib.shuffle)); $('btnRepeat').setAttribute('aria-pressed', String(lib.repeat !== 'off')); $('btnRepeat').textContent = lib.repeat === 'one' ? '↻ repeat one' : '↻ repeat'; try { localStorage.setItem('nr.shuffle', lib.shuffle ? '1' : '0'); localStorage.setItem('nr.repeat', lib.repeat); } catch (e) { } }
+$('btnShuffle').addEventListener('click', () => { lib.shuffle = !lib.shuffle; syncModes(); });
+$('btnRepeat').addEventListener('click', () => { lib.repeat = lib.repeat === 'off' ? 'all' : lib.repeat === 'all' ? 'one' : 'off'; syncModes(); });
+syncModes();
+$('btnLibrary').addEventListener('click', () => { const open = $('library').hidden; $('library').hidden = !open; $('btnLibrary').setAttribute('aria-expanded', String(open)); });
+$('btnCloseLib').addEventListener('click', () => { $('library').hidden = true; $('btnLibrary').setAttribute('aria-expanded', 'false'); });
+$('btnClearLib').addEventListener('click', () => { if (!lib.tracks.length) return; const b = $('btnClearLib'); if (b.dataset.arm) { delete b.dataset.arm; b.textContent = 'Clear all'; clearLibrary(); } else { b.dataset.arm = '1'; b.textContent = 'Tap again to clear'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Clear all'; }, 3000); } });
 $('zIn').addEventListener('click', () => zoomAt(1.6, view.w / 2, view.h / 2));
 $('zOut').addEventListener('click', () => zoomAt(1 / 1.6, view.w / 2, view.h / 2));
-$('zReset').addEventListener('click', () => flyTo(505, 415, 1));
+$('zReset').addEventListener('click', goHome);
 $('readoutToggle').addEventListener('click', () => { const r = $('readout'); r.classList.toggle('collapsed'); $('readoutToggle').setAttribute('aria-expanded', String(!r.classList.contains('collapsed'))); });
 if (window.innerWidth < 760) { $('readout').classList.add('collapsed'); $('readoutToggle').setAttribute('aria-expanded', 'false'); }
-// drag & drop a track anywhere
 window.addEventListener('dragover', e => { e.preventDefault(); });
-window.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f && f.type.startsWith('audio')) startFile(f); });
+window.addEventListener('drop', e => { e.preventDefault(); const fs = Array.from(e.dataTransfer && e.dataTransfer.files || []); if (fs.length) addTracks(fs, true); });
+// OS media keys and lock-screen controls
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession; const set = (a, fn) => { try { ms.setActionHandler(a, fn); } catch (e) { } };
+  set('play', togglePlay); set('pause', togglePlay); set('previoustrack', prev); set('nexttrack', next);
+  set('seekto', d => { if (audio.el && d.seekTime != null) audio.el.currentTime = d.seekTime; });
+  set('seekbackward', d => { if (audio.el) audio.el.currentTime = Math.max(0, audio.el.currentTime - (d.seekOffset || 10)); });
+  set('seekforward', d => { if (audio.el) audio.el.currentTime = Math.min(audio.el.duration || 0, audio.el.currentTime + (d.seekOffset || 10)); });
+}
+// installed app: files opened from the OS arrive here
+if ('launchQueue' in window && window.launchQueue.setConsumer) { try { window.launchQueue.setConsumer(async p => { const fs = []; for (const h of p.files || []) { try { fs.push(await h.getFile()); } catch (e) { } } if (fs.length) addTracks(fs, true); }); } catch (e) { } }
+// install prompt (Chromium) and service worker (only when served over http(s) with a manifest)
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('btnInstall').hidden = false; });
+$('btnInstall').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { } installEvt = null; $('btnInstall').hidden = true; });
+window.addEventListener('appinstalled', () => { $('btnInstall').hidden = true; toast('Installed. Neural Resonance now opens as its own app.'); });
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && document.querySelector('link[rel=manifest]')) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { }); }); }
 // legend
 {
   const ul = $('legend'); const order = ['auditory', 'motor', 'cerebellum', 'striatum', 'pfc', 'cingulate', 'hippocampus', 'amygdala', 'accumbens', 'hypothalamus', 'thalamus', 'vta', 'lc', 'raphe', 'parietal', 'occipital', 'temporal', 'brainstem'];
@@ -1006,7 +1198,7 @@ canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointer
 canvas.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) { hover(e.clientX, e.clientY); return; }
   const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy);
-  if (ptrs.size === 1) { view.cx -= dx / view.scale; view.cy -= dy / view.scale; view.animating = false; clampCam(); }
+  if (ptrs.size === 1) { view.touched = true; view.cx -= dx / view.scale; view.cy -= dy / view.scale; view.animating = false; clampCam(); }
   p.x = e.clientX; p.y = e.clientY;
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 0) zoomAt(d / pinch0, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch0 = d; }
   hideTip();
@@ -1020,7 +1212,7 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.d
 canvas.addEventListener('dblclick', e => dblTap(e.clientX, e.clientY));
 canvas.addEventListener('pointerleave', hideTip);
 function regionAt(wx, wy) { for (const r of inner) if (wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; for (const r of regions) if (r.layer === 1 && wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; return null; }
-function dblTap(sx, sy) { const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy); if (r) flyTo(r.cx, r.cy, view.z < 2.5 ? (r.small ? 7 : 3.4) : Math.min(18, view.z * 2.2)); else if (view.z > 1.05) flyTo(505, 415, 1); }
+function dblTap(sx, sy) { const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy); if (r) flyTo(r.cx, r.cy, view.z < 2.5 ? (r.small ? 7 : 3.4) : Math.min(18, view.z * 2.2)); else if (view.z > 1.05) goHome(); }
 const tip = $('tip'); let tipRegion = null;
 function hover(sx, sy) {
   const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy);
@@ -1033,7 +1225,15 @@ function hover(sx, sy) {
   tip.style.transform = `translate(${x + 14}px,${y + 14}px)`;
 }
 function hideTip() { tip.hidden = true; tipRegion = null; }
-window.addEventListener('keydown', e => { if (e.target && /INPUT|BUTTON|LABEL/.test(e.target.tagName) && e.key !== 'Escape') return; if (e.key === '+' || e.key === '=') zoomAt(1.4, view.w / 2, view.h / 2); else if (e.key === '-') zoomAt(1 / 1.4, view.w / 2, view.h / 2); else if (e.key === '0' || e.key === 'Escape') flyTo(505, 415, 1); else if (e.key === ' ' && audio.el && audio.source === 'file') { e.preventDefault(); $('btnPlay').click(); } });
+window.addEventListener('keydown', e => {
+  if (e.target && /INPUT|BUTTON|LABEL|SELECT|TEXTAREA/.test(e.target.tagName) && e.key !== 'Escape' && e.key !== ' ') return;
+  if (e.key === '+' || e.key === '=') zoomAt(1.4, view.w / 2, view.h / 2); else if (e.key === '-') zoomAt(1 / 1.4, view.w / 2, view.h / 2); else if (e.key === '0' || e.key === 'Escape') goHome();
+  else if (e.key === ' ') { if (e.target && e.target.tagName === 'INPUT') return; e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowRight' && audio.el && audio.source === 'file') { audio.el.currentTime = Math.min(audio.el.duration || 0, audio.el.currentTime + 5); }
+  else if (e.key === 'ArrowLeft' && audio.el && audio.source === 'file') { audio.el.currentTime = Math.max(0, audio.el.currentTime - 5); }
+  else if (e.key === 'n' || e.key === 'N') next(); else if (e.key === 'p' || e.key === 'P') prev();
+  else if (e.key === 'l' || e.key === 'L') $('btnLibrary').click();
+});
 
 // readouts
 let lastUI = 0;
@@ -1055,7 +1255,6 @@ const idleF = { spec: new Float32Array(64), bands: new Float32Array(8), loudN: 0
 let last = performance.now() / 1000, frameEMA = 0.016, perfT = 0;
 function frame(ms) {
   const now = ms / 1000; let dt = now - last; last = now; if (dt > 0.06) dt = 0.06; if (dt <= 0) dt = 0.001;
-  // adaptive resolution: if frames stay slow on a high-density screen, drop to 1x pixels
   frameEMA += (dt - frameEMA) * 0.04;
   if (frameEMA > 1 / 32 && view.dprCap > 1 && now - perfT > 4 && now > 3) { view.dprCap = 1; perfT = now; resize(); }
   if (view.animating) { const k = Math.min(1, dt * 5); view.cx += (view.tcx - view.cx) * k; view.cy += (view.tcy - view.cy) * k; view.z += (view.tz - view.z) * k; if (Math.abs(view.z - view.tz) < 0.003 && Math.abs(view.cx - view.tcx) < 0.2 && Math.abs(view.cy - view.tcy) < 0.2) { view.z = view.tz; view.cx = view.tcx; view.cy = view.tcy; view.animating = false; } clampCam(); }
@@ -1066,8 +1265,9 @@ function frame(ms) {
   updateReadout(now, F, active);
   requestAnimationFrame(frame);
 }
+restoreLibrary();
 requestAnimationFrame(frame);
-window.__viz = { audio, brain, regions, paths, view, D, startDemo, stopSource, flyTo, fns: { drawDots, drawPathways, drawConnections, drawDetails, drawSkull, drawLabels, drawBackground, beginGlow, endGlow, render } };
+window.__viz = { audio, brain, regions, paths, view, D, lib, startDemo, stopSource, flyTo, addTracks, playIndex, next, prev, gl: () => gl, fns: { render, buildCloud, drawDetails, drawConnections, drawSkull, drawLabels } };
 })();
 </script>
 <!-- ARTIFACT-END -->
