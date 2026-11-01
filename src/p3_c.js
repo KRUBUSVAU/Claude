@@ -15,7 +15,7 @@ class Brain {
   }
   spawnPulse(p, intensity, now) {
     if (now - p.lastSpawn < 0.11) { const last = this.pulses[this.pulses.length - 1]; if (last && last.p === p) last.i = Math.min(1, last.i + intensity * 0.5); return; }
-    p.lastSpawn = now; this.pulses.push({ p, t: 0, i: intensity, speed: 420 / p.length });
+    p.lastSpawn = now; this.pulses.push({ p, t: 0, i: intensity, speed: 110 / p.length });
   }
   connect(e, now) {
     const kinds = { melody: ['auditory', 'hippocampus', 'pfc'], chord: ['pfc', 'hippocampus', 'cingulate'], sample: ['auditory', 'auditory', 'thalamus'] };
@@ -47,24 +47,24 @@ class Brain {
         case 'onset':
           flash[g.motor.i] += e.strength * 0.9; flash[g.striatum.i] += e.strength * 0.5; flash[g.thalamus.i] += e.strength * 0.4; flash[g.brainstem.i] += e.strength * 0.5; this.beatPulse = Math.max(this.beatPulse, e.strength);
           if (e.strength > 0.75) { flash[g.amygdala.i] += 0.5; this.release('ne', 0.12, 'sudden transient', now); }
-          this.spawnPulse(pathById.auditoryPath, e.strength, now); if (e.strength > 0.4) this.spawnPulse(pathById.ctc, e.strength * 0.7, now);
-          if (e.strength > 0.6) this.spawnPulse(pathById.callosum, e.strength * 0.5, now);
+          spawnPath('auditoryPath', e.strength, now); if (e.strength > 0.4) spawnPath('ctc', e.strength * 0.7, now);
+          if (e.strength > 0.6) spawnPath('callosum', e.strength * 0.5, now);
           break;
-        case 'beat': flash[g.cerebellum.i] += 0.7; flash[g.motor.i] += 0.2; this.spawnPulse(pathById.striatal, 0.5, now); break;
+        case 'beat': flash[g.cerebellum.i] += 0.7; flash[g.motor.i] += 0.2; spawnPath('striatal', 0.5, now); break;
         case 'chord': {
           const h = CHORD_HUE[e.q]; this.chordHue = h; this.lastChordName = e.name;
           flash[g.pfc.i] = Math.max(flash[g.pfc.i], 1); this.flashHue[g.pfc.i] = h;
           flash[g.cingulate.i] += 0.55; this.flashHue[g.cingulate.i] = h;
           if (e.q === 1 && e.prevQ !== 1) { flash[g.amygdala.i] += 0.45; this.flashHue[g.amygdala.i] = h; }
-          this.spawnPulse(pathById.arcuate, 0.8, now); break;
+          spawnPath('arcuate', 0.8, now); break;
         }
         case 'bpm': this.bpmChangeT = now; break;
         case 'da': case 'ne': case 'ht': this.release(e.type, e.amt, e.why, now); break;
         case 'drop': this.release('da', e.amt, 'drop', now); this.release('ne', e.amt * 0.6, 'drop', now); for (const r of CORTEX) flash[r] += 0.45; this.dropT = now; break;
         case 'rep':
           flash[g.hippocampus.i] += e.kind === 'sample' ? 0.3 : 0.7; this.memory = Math.min(1, this.memory + (e.kind === 'sample' ? 0.08 : 0.3)); this.connect(e, now);
-          if (e.kind !== 'sample') { this.release('da', 0.14, 'recognised a ' + (e.kind === 'melody' ? 'melody' : 'progression'), now); this.spawnPulse(pathById.fornix, 0.8, now); }
-          else if (e.count % 4 === 0) this.spawnPulse(pathById.fornix, 0.4, now);
+          if (e.kind !== 'sample') { this.release('da', 0.14, 'recognised a ' + (e.kind === 'melody' ? 'melody' : 'progression'), now); spawnPath('fornix', 0.8, now); }
+          else if (e.count % 4 === 0) spawnPath('fornix', 0.4, now);
           break;
       }
     }

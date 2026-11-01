@@ -195,8 +195,8 @@ syncModes();
 $('btnLibrary').addEventListener('click', () => { const open = $('library').hidden; $('library').hidden = !open; $('btnLibrary').setAttribute('aria-expanded', String(open)); });
 $('btnCloseLib').addEventListener('click', () => { $('library').hidden = true; $('btnLibrary').setAttribute('aria-expanded', 'false'); });
 $('btnClearLib').addEventListener('click', () => { if (!lib.tracks.length) return; const b = $('btnClearLib'); if (b.dataset.arm) { delete b.dataset.arm; b.textContent = 'Clear all'; clearLibrary(); } else { b.dataset.arm = '1'; b.textContent = 'Tap again to clear'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Clear all'; }, 3000); } });
-$('zIn').addEventListener('click', () => zoomAt(1.6, view.w / 2, view.h / 2));
-$('zOut').addEventListener('click', () => zoomAt(1 / 1.6, view.w / 2, view.h / 2));
+$('zIn').addEventListener('click', () => { touch(); dolly(1 / 1.5); });
+$('zOut').addEventListener('click', () => { touch(); dolly(1.5); });
 $('zReset').addEventListener('click', goHome);
 $('readoutToggle').addEventListener('click', () => { const r = $('readout'); r.classList.toggle('collapsed'); $('readoutToggle').setAttribute('aria-expanded', String(!r.classList.contains('collapsed'))); });
 if (window.innerWidth < 760) { $('readout').classList.add('collapsed'); $('readoutToggle').setAttribute('aria-expanded', 'false'); }
@@ -221,49 +221,54 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && docum
 // legend
 {
   const ul = $('legend'); const order = ['auditory', 'motor', 'cerebellum', 'striatum', 'pfc', 'cingulate', 'hippocampus', 'amygdala', 'accumbens', 'hypothalamus', 'thalamus', 'vta', 'lc', 'raphe', 'parietal', 'occipital', 'temporal', 'brainstem'];
-  for (const id of order) { const r = regionById[id]; const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:hsl(${r.hue},${r.sat}%,${r.light}%);color:hsl(${r.hue},${r.sat}%,${r.light}%)"></span><span>${r.name}${r.limbic ? '<span class="lim">limbic</span>' : ''}</span>`; b.title = r.desc; b.addEventListener('click', () => flyTo(r.cx, r.cy, r.small ? 7 : 3.4)); li.appendChild(b); ul.appendChild(li); }
+  for (const id of order) { const r = regionById[id]; const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:hsl(${r.hue},${r.sat}%,${r.light}%);color:hsl(${r.hue},${r.sat}%,${r.light}%)"></span><span>${r.name}${r.limbic ? '<span class="lim">limbic</span>' : ''}</span>`; b.title = r.desc; b.addEventListener('click', () => flyToRegion(r)); li.appendChild(b); ul.appendChild(li); }
 }
-// pointer interaction
-const ptrs = new Map(); let dragging = false, pinch0 = 0, lastTap = 0, moved = 0;
-canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } dragging = true; canvas.classList.add('dragging'); });
+// pointer interaction: drag orbits, right-drag / shift-drag / two fingers pan, wheel or pinch zooms
+const ptrs = new Map(); let pinch0 = 0, pinchMid = null, lastTap = 0, moved = 0;
+function touch() { view.touched = true; view.animating = false; view.lastInteract = performance.now() / 1000; }
+function pan(dx, dy) { const k = 2 * view.dist * Math.tan(FOV / 2) / view.h; view.tx -= (camRight[0] * dx - camUp[0] * dy) * k; view.ty -= (camRight[1] * dx - camUp[1] * dy) * k; view.tz -= (camRight[2] * dx - camUp[2] * dy) * k; view.tx = clamp(view.tx, -120, 120); view.ty = clamp(view.ty, -150, 120); view.tz = clamp(view.tz, -110, 120); }
+function dolly(f) { view.dist = clamp(view.dist * f, 14, 900); }
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, shift: e.shiftKey }); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); pinchMid = [(a.x + b.x) / 2, (a.y + b.y) / 2]; } canvas.classList.add('dragging'); hideTip(); });
 canvas.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) { hover(e.clientX, e.clientY); return; }
-  const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy);
-  if (ptrs.size === 1) { view.touched = true; view.cx -= dx / view.scale; view.cy -= dy / view.scale; view.animating = false; clampCam(); }
-  p.x = e.clientX; p.y = e.clientY;
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 0) zoomAt(d / pinch0, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch0 = d; }
-  hideTip();
+  const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy); p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 1) { touch(); if (p.b === 2 || p.b === 1 || p.shift) pan(dx, dy); else { view.yaw -= dx * 0.0055; view.pitch += dy * 0.0055; view.pitch = clamp(view.pitch, -1.45, 1.45); } }
+  else if (ptrs.size === 2) { touch(); const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), mid = [(a.x + b.x) / 2, (a.y + b.y) / 2]; if (pinch0 > 0) dolly(pinch0 / d); if (pinchMid) pan(mid[0] - pinchMid[0], mid[1] - pinchMid[1]); pinch0 = d; pinchMid = mid; }
 });
 function endPtr(e) {
-  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 6) { const now = performance.now(); if (now - lastTap < 320) { dblTap(e.clientX, e.clientY); lastTap = 0; } else lastTap = now; }
-  ptrs.delete(e.pointerId); if (!ptrs.size) { dragging = false; canvas.classList.remove('dragging'); } pinch0 = 0;
+  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 6 && e.pointerType !== 'mouse') { const now = performance.now(); if (now - lastTap < 320) { dblTap(e.clientX, e.clientY); lastTap = 0; } else lastTap = now; }
+  ptrs.delete(e.pointerId); if (!ptrs.size) canvas.classList.remove('dragging'); pinch0 = 0; pinchMid = null;
 }
 canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
-canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0016)), e.clientX, e.clientY); }, { passive: false });
+canvas.addEventListener('wheel', e => { e.preventDefault(); touch(); dolly(Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.04 : 0.0013))); }, { passive: false });
 canvas.addEventListener('dblclick', e => dblTap(e.clientX, e.clientY));
 canvas.addEventListener('pointerleave', hideTip);
-function regionAt(wx, wy) { for (const r of inner) if (wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; for (const r of regions) if (r.layer === 1 && wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; return null; }
-function dblTap(sx, sy) { const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy); if (r) flyTo(r.cx, r.cy, view.z < 2.5 ? (r.small ? 7 : 3.4) : Math.min(18, view.z * 2.2)); else if (view.z > 1.05) goHome(); }
+function dblTap(sx, sy) { const hit = regionAt(sx, sy); if (hit) flyToRegion(hit.r, hit.c); else goHome(); }
 const tip = $('tip'); let tipRegion = null;
 function hover(sx, sy) {
-  const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy);
-  if (!r) { hideTip(); return; }
+  const hit = regionAt(sx, sy); if (!hit) { hideTip(); return; } const r = hit.r;
   let extra = '';
-  if (view.z >= 2.6) { const ntc = NT[r.nt]; const lvl = Math.round(clamp(brain.recept[r.i] + (r.nt === 'glu' ? brain.act[r.i] : brain.nt[r.nt].level), 0, 1) * 100); extra = `<div class="rc"><i style="background:${ntc.css}"></i>${ntc.receptor} · ${lvl}% active</div>`; }
+  if (view.dist < 90) { const ntc = NT[r.nt]; const lvl = Math.round(clamp(brain.recept[r.i] + (r.nt === 'glu' ? brain.act[r.i] : brain.nt[r.nt].level), 0, 1) * 100); extra = `<div class="rc"><i style="background:${ntc.css}"></i>${ntc.receptor} · ${lvl}% active</div>`; }
   if (tipRegion !== r || extra) { tip.innerHTML = `<h3>${r.name}</h3><p>${r.desc}</p>${extra}`; tipRegion = r; }
   tip.hidden = false;
   const tw = tip.offsetWidth, th = tip.offsetHeight; let x = sx, y = sy; if (x + tw + 20 > view.w) x = sx - tw - 28; if (y + th + 20 > view.h) y = sy - th - 28;
   tip.style.transform = `translate(${x + 14}px,${y + 14}px)`;
 }
 function hideTip() { tip.hidden = true; tipRegion = null; }
+// view buttons
+const VIEWS = { left: [-Math.PI / 2, 0.05], right: [Math.PI / 2, 0.05], front: [0, 0.05], top: [-0.001, 1.44], back: [Math.PI, 0.05] };
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { const v = VIEWS[b.dataset.view]; if (v) flyTo([0, -14, 4], view.homeDist, v[0], v[1]); else goHome(); }));
+$('btnSpin').addEventListener('click', () => { view.autoSpin = !view.autoSpin; $('btnSpin').setAttribute('aria-pressed', String(view.autoSpin)); view.lastInteract = -100; });
+$('btnSkull').addEventListener('click', () => { view.showSkull = !view.showSkull; $('btnSkull').setAttribute('aria-pressed', String(view.showSkull)); });
 window.addEventListener('keydown', e => {
   if (e.target && /INPUT|BUTTON|LABEL|SELECT|TEXTAREA/.test(e.target.tagName) && e.key !== 'Escape' && e.key !== ' ') return;
-  if (e.key === '+' || e.key === '=') zoomAt(1.4, view.w / 2, view.h / 2); else if (e.key === '-') zoomAt(1 / 1.4, view.w / 2, view.h / 2); else if (e.key === '0' || e.key === 'Escape') goHome();
+  if (e.key === '+' || e.key === '=') { touch(); dolly(1 / 1.3); } else if (e.key === '-') { touch(); dolly(1.3); } else if (e.key === '0' || e.key === 'Escape') goHome();
   else if (e.key === ' ') { if (e.target && e.target.tagName === 'INPUT') return; e.preventDefault(); togglePlay(); }
   else if (e.key === 'ArrowRight' && audio.el && audio.source === 'file') { audio.el.currentTime = Math.min(audio.el.duration || 0, audio.el.currentTime + 5); }
   else if (e.key === 'ArrowLeft' && audio.el && audio.source === 'file') { audio.el.currentTime = Math.max(0, audio.el.currentTime - 5); }
   else if (e.key === 'n' || e.key === 'N') next(); else if (e.key === 'p' || e.key === 'P') prev();
-  else if (e.key === 'l' || e.key === 'L') $('btnLibrary').click();
+  else if (e.key === 'l' || e.key === 'L') $('btnLibrary').click(); else if (e.key === 's' || e.key === 'S') $('btnSpin').click();
 });
 
 // readouts
@@ -288,7 +293,11 @@ function frame(ms) {
   const now = ms / 1000; let dt = now - last; last = now; if (dt > 0.06) dt = 0.06; if (dt <= 0) dt = 0.001;
   frameEMA += (dt - frameEMA) * 0.04;
   if (frameEMA > 1 / 32 && view.dprCap > 1 && now - perfT > 4 && now > 3) { view.dprCap = 1; perfT = now; resize(); }
-  if (view.animating) { const k = Math.min(1, dt * 5); view.cx += (view.tcx - view.cx) * k; view.cy += (view.tcy - view.cy) * k; view.z += (view.tz - view.z) * k; if (Math.abs(view.z - view.tz) < 0.003 && Math.abs(view.cx - view.tcx) < 0.2 && Math.abs(view.cy - view.tcy) < 0.2) { view.z = view.tz; view.cx = view.tcx; view.cy = view.tcy; view.animating = false; } clampCam(); }
+  if (view.animating) {
+    const k = Math.min(1, dt * 4.5); let dy = view.tyaw - view.yaw; dy = ((dy + Math.PI) % TAU + TAU) % TAU - Math.PI; view.yaw += dy * k; view.pitch += (view.tpitch - view.pitch) * k;
+    view.dist += (view.tdist - view.dist) * k; view.tx += (view.ttx - view.tx) * k; view.ty += (view.tty - view.ty) * k; view.tz += (view.ttz - view.tz) * k;
+    if (Math.abs(dy) < 0.002 && Math.abs(view.tdist - view.dist) < 0.1 && Math.abs(view.ttx - view.tx) + Math.abs(view.tty - view.ty) + Math.abs(view.ttz - view.tz) < 0.1) { view.yaw = view.tyaw; view.pitch = view.tpitch; view.dist = view.tdist; view.tx = view.ttx; view.ty = view.tty; view.tz = view.ttz; view.animating = false; }
+  } else if (view.autoSpin && !REDUCED && now - view.lastInteract > 6 && view.dist > 120) view.yaw += dt * 0.07;
   const active = isActive(); const F = audio.F || idleF;
   if (audio.F) audio.F.update(now, dt, active);
   brain.update(dt, F, active, now);
@@ -298,5 +307,5 @@ function frame(ms) {
 }
 restoreLibrary();
 requestAnimationFrame(frame);
-window.__viz = { audio, brain, regions, paths, view, D, lib, startDemo, stopSource, flyTo, addTracks, playIndex, next, prev, gl: () => gl, fns: { render, buildCloud, drawDetails, drawConnections, drawSkull, drawLabels } };
+window.__viz = { audio, brain, regions, paths, view, D, lib, startDemo, stopSource, flyTo, flyToRegion, goHome, addTracks, playIndex, next, prev, regionById, gl: () => gl };
 })();

@@ -1,6 +1,18 @@
 # Neural Resonance
 
-A music visualizer that draws a human brain as clouds of tonally shaded dots inside a translucent bluish skull, and maps what it hears onto brain function. It is a single self-contained page (`index.html`) that also installs as an app: a Progressive Web App on phones and desktops, and an Electron desktop build in `desktop/`.
+A music visualizer that draws a human brain in 3D as clouds of tonally shaded dots inside a translucent bluish skull, and maps what it hears onto brain function. Orbit it, fly into a structure, and the view resolves into synapses with neurotransmitter molecules crossing the cleft. It is one page (`index.html` plus `assets/brain-data.js`) that also installs as an app: a Progressive Web App on phones and desktops, and an Electron desktop build in `desktop/`.
+
+## Anatomy
+
+The geometry is real. Every structure is a cloud of points sampled inside its volume in the MNI152 2009c template brain, from three open atlases served by TemplateFlow:
+
+- FreeSurfer-style `aseg` segmentation: thalamus, caudate, putamen, pallidum, hippocampus, amygdala, nucleus accumbens, cerebellum, brainstem, and the cortical ribbon.
+- Harvard-Oxford cortical atlas: the ribbon split into prefrontal, motor and premotor, parietal, occipital, temporal and cingulate cortex, plus Heschl's gyrus and the planum temporale for the auditory cortex.
+- MASSP subcortical atlas: ventral tegmental area, dorsal and median raphe nuclei, inferior colliculus and medial geniculate nucleus (used as waypoints for the auditory pathway). The locus coeruleus and hypothalamus, which these atlases do not label, are placed at their standard MNI coordinates.
+
+The skull is the band of bone and cerebrospinal fluid between the brain and the scalp in the T1-weighted template, sampled as a faint shell of 24,000 dots. The template's field of view ends at the orbits, so this is the cranial vault and skull base; the facial skeleton is not in the data. Pathways (mesolimbic and mesocortical dopamine, noradrenergic, serotonergic, ascending auditory, arcuate fasciculus, cerebello-thalamo-cortical, hippocampal-prefrontal, cortico-striatal, corpus callosum) are curves through the centroids of the real structures, mirrored into both hemispheres.
+
+`tools/build-brain-data.py` rebuilds `assets/brain-data.js` from the atlas files (about 80,000 points, 1.2 MB). Attribution: MNI152NLin2009cAsym template (Fonov et al.), Harvard-Oxford atlas (Desikan et al., FSL), MASSP atlas (Bazin et al. 2020), all distributed through TemplateFlow.
 
 ## Playing music
 
@@ -25,13 +37,17 @@ Microphone input is parked for now; the focus is on tracks.
 | Steady tempo and major tonality | Raphe nuclei release serotonin (green) to the limbic system. |
 | Repeated melody, chord progression or sample | Hippocampus flashes and neurons connect: synapses form between auditory cortex, hippocampus and prefrontal cortex for melodies, between prefrontal and limbic regions for progressions, and within the auditory cortex for samples. Each repetition of the same material strengthens the same connections. |
 
+## Moving around
+
+Drag to orbit, right-drag (or two fingers) to pan, scroll or pinch to zoom. The Left, Front, Top and Home buttons jump to set views; Spin turns the slow idle rotation on and off; Skull hides the skull shell. Double-click a structure, or pick it from the legend, to fly to it. Hover a structure for its name and what drives it.
+
 ## Zooming in
 
-Scroll, pinch, or use the + and − buttons. Double-click a region (or pick it from the legend) to fly to it. Past roughly 3x zoom each dot becomes a neuron: soma, dendrites, a presynaptic bouton with vesicles, and a row of receptors on the postsynaptic membrane. When that region's neuromodulator arrives, molecules cross the cleft, dock, light the receptor, and (for dopamine, norepinephrine and serotonin) are taken back up. Receptor glyphs differ by transmitter: cups for dopamine, triangles for β-adrenergic, hexagons for 5-HT, bars for glutamate. Hover a region for its name, what drives it, and its receptor activity.
+Nothing extra is drawn on the whole brain. Once the camera is within a few centimetres of a point, the dots around that point resolve into synapses: a presynaptic terminal with vesicles, the cleft, and a postsynaptic terminal carrying receptors, all built from dots like the rest of the brain. When that region's neuromodulator arrives, molecules cross the cleft, dock, light the receptor, and (for dopamine, norepinephrine and serotonin) are taken back up. The rest of the brain dims while you are in close so the synapses are the subject. Hover shows the receptor type and its current activity.
 
 ## Rendering
 
-Every structure is a cloud of dots (about 6,300 in total plus the pathways). All dots are drawn by the GPU as point sprites in WebGL: one draw call for the clouds and one for their bloom per frame, with per-dot hue, tone and size. A transparent 2D canvas on top draws the skull, synapse lines, labels and the zoomed-in neuron detail. If WebGL is unavailable the 2D canvas draws the dots too, more slowly. On slow devices with high-density screens the page drops to 1x pixel density automatically.
+Every structure is a cloud of dots, about 80,000 in total plus the pathways and skull. All of them live in one static GPU buffer; a vertex shader computes each dot's brightness and colour every frame from per-region uniforms (activation, flash, hue, the live spectrum for the auditory cortex), so no per-dot data is uploaded per frame. Two draw calls render the clouds and their bloom; a third pair renders pathways, pulses and the synapse close-ups. A transparent 2D canvas on top draws labels and the synapse lines formed by repetition. WebGL is required. On slow devices with high-density screens the page drops to 1x pixel density automatically.
 
 ## How the analysis works
 

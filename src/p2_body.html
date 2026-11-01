@@ -66,8 +66,13 @@
     <div class="row">
       <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>
       <button class="btn icon" id="zOut" aria-label="Zoom out">−</button>
-      <button class="btn quiet" id="zReset">Reset view</button>
-      <span class="hint">Scroll or pinch to zoom in on receptors. Drag to pan. Double-click a region to visit it.</span>
+      <button class="btn quiet" id="zReset" data-view="home">Home</button>
+      <button class="btn quiet tiny" data-view="left">Left</button>
+      <button class="btn quiet tiny" data-view="front">Front</button>
+      <button class="btn quiet tiny" data-view="top">Top</button>
+      <button class="btn quiet tiny" id="btnSpin" aria-pressed="true" title="Slow auto-rotation when idle (S)">Spin</button>
+      <button class="btn quiet tiny" id="btnSkull" aria-pressed="true">Skull</button>
+      <span class="hint">Drag to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. Double-click a region to fly in; get close to watch its receptors.</span>
     </div>
   </div>
 </div>
