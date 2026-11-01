@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ARTIFACT-START -->
+<title>Neural Resonance</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed canvas (the specimen) with thin instrument panels floating over it,
+   the way labels sit on an anatomical plate. Single committed dark look: a lit brain in a dark room. */
+:root{
+  --bg:#05070d; --bg-2:#0b111c; --fg:#dfe6f3; --fg-dim:#8a96ab; --fg-faint:#5b6678;
+  --line:rgba(150,190,255,.16); --line-strong:rgba(150,190,255,.34);
+  --panel:rgba(7,11,20,.74); --accent:#9dbcff; --bone:#9cc0ff;
+  --da:#ff5fb4; --ne:#ffb347; --ht:#5fe0a8; --glu:#7fd3ff;
+  --font-display:"Cormorant Garamond","Iowan Old Style",Georgia,serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;background:var(--bg)}
+#stage.dragging{cursor:grabbing}
+
+.ui{position:fixed;inset:0;pointer-events:none;display:grid;gap:12px;
+  grid-template-columns:minmax(0,1fr) minmax(0,auto);grid-template-rows:auto minmax(0,1fr) auto;
+  padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(12px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.ui>*{pointer-events:auto;min-width:0}
+
+.brand{grid-column:1;grid-row:1;align-self:start;max-width:34rem}
+.brand h1{margin:0;font:italic 500 clamp(26px,4vw,38px)/1 var(--font-display);letter-spacing:.01em;color:#eef3ff;text-wrap:balance;text-shadow:0 0 24px rgba(120,170,255,.25)}
+.brand .status{margin:6px 0 0;color:var(--fg-dim);font-size:11.5px;letter-spacing:.04em}
+.brand .status b{color:var(--fg);font-weight:500}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+
+.readout{grid-column:2;grid-row:1/4;align-self:start;width:min(280px,calc(100vw - 32px));max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+.readout-head{all:unset;display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer;font:500 11px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-dim);border-bottom:1px solid var(--line)}
+.readout-head:focus-visible{outline:1px solid var(--accent);outline-offset:-1px}
+.readout-head .chev{width:7px;height:7px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg);transition:transform .2s}
+.readout.collapsed .readout-head{border-bottom-color:transparent}
+.readout.collapsed .readout-head .chev{transform:rotate(-135deg)}
+.readout.collapsed .readout-body{display:none}
+.readout-body{overflow:auto;padding:10px 12px 12px;scrollbar-width:thin}
+.readout h2{margin:14px 0 6px;font:500 10px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-faint)}
+.facts{margin:0;display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:5px;font-variant-numeric:tabular-nums}
+.facts>div{display:contents}
+.facts dt{color:var(--fg-dim)}
+.facts dd{margin:0;color:var(--fg);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.facts dd .flag{color:var(--ne);margin-left:6px;font-size:10px;letter-spacing:.08em}
+.bar{display:inline-block;vertical-align:middle;width:100%;height:5px;background:rgba(150,190,255,.1);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .08s linear}
+.meters{display:grid;gap:7px}
+.meter{display:grid;grid-template-columns:7.2em 1fr;align-items:center;column-gap:10px;row-gap:2px}
+.meter span:first-child{color:var(--fg-dim)}
+.meter em{grid-column:2;font-style:normal;font-size:10px;color:var(--fg-faint);letter-spacing:.04em;min-height:1.2em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meter .bar.da i{background:var(--da)} .meter .bar.ne i{background:var(--ne)} .meter .bar.ht i{background:var(--ht)}
+.legend{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.legend button{all:unset;display:grid;grid-template-columns:10px 1fr;align-items:center;gap:9px;width:100%;padding:3px 4px;border-radius:3px;cursor:pointer;color:var(--fg-dim);font:inherit;font-size:11.5px}
+.legend button:hover,.legend button:focus-visible{background:rgba(150,190,255,.08);color:var(--fg);outline:none}
+.legend .sw{width:10px;height:10px;border-radius:50%;box-shadow:0 0 8px currentColor}
+.legend .lim{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-faint);margin-left:5px}
+
+.dock{grid-column:1;grid-row:3;align-self:end;display:flex;flex-direction:column;gap:8px;max-width:40rem}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn{all:unset;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line-strong);border-radius:3px;background:var(--panel);color:var(--fg);font:500 11px/1 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.btn.on{border-color:var(--accent);color:#fff;box-shadow:inset 0 0 0 1px rgba(157,188,255,.35),0 0 16px rgba(157,188,255,.18)}
+.btn.quiet{border-color:var(--line);color:var(--fg-dim)}
+.btn.icon{padding:7px 10px;min-width:32px;justify-content:center;font-size:13px}
+.btn[hidden]{display:none}
+.transport{display:flex;align-items:center;gap:8px;padding:6px 8px;max-width:100%}
+.transport input[type=range]{flex:1;min-width:80px;accent-color:var(--accent);height:14px;margin:0}
+.transport .t{font-variant-numeric:tabular-nums;color:var(--fg-dim);font-size:11px;white-space:nowrap}
+.transport .name{max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim);font-size:11px}
+.hint{color:var(--fg-faint);font-size:10.5px;letter-spacing:.03em;max-width:26rem}
+
+.tip{position:fixed;left:0;top:0;pointer-events:none;max-width:260px;padding:8px 11px 9px;background:rgba(7,11,20,.86);border:1px solid var(--line-strong);border-radius:3px;transform:translate(14px,14px);z-index:5}
+.tip h3{margin:0;font:italic 500 17px/1.15 var(--font-display);color:#f0f4ff}
+.tip p{margin:4px 0 0;color:var(--fg-dim);font-size:11px;line-height:1.4}
+.tip .rc{margin-top:5px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase}
+.tip .rc i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:0}
+.toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:min(90vw,34rem);padding:9px 14px;background:rgba(7,11,20,.9);border:1px solid var(--line-strong);border-radius:3px;color:var(--fg);font-size:12px;z-index:6;text-align:center}
+
+@media (max-width:760px){
+  .ui{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto;gap:8px}
+  .brand{grid-column:1;grid-row:1}
+  .readout{grid-column:1;grid-row:3;width:100%;max-height:46vh}
+  .dock{grid-column:1;grid-row:4;max-width:none}
+  .hint{display:none}
+  .brand h1{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){ .bar i{transition:none} }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Brain visualizer canvas"></canvas>
+<div class="ui">
+  <header class="brand">
+    <h1>Neural Resonance</h1>
+    <p class="status" id="status">Resting state. Pick a sound source to begin.</p>
+  </header>
+
+  <aside class="readout panel" id="readout">
+    <button class="readout-head" id="readoutToggle" aria-expanded="true" aria-controls="readoutBody">Activity <span class="chev" aria-hidden="true"></span></button>
+    <div class="readout-body" id="readoutBody">
+      <dl class="facts">
+        <div><dt>Tempo</dt><dd id="fTempo">—</dd></div>
+        <div><dt>Key</dt><dd id="fKey">—</dd></div>
+        <div><dt>Chord</dt><dd id="fChord">—</dd></div>
+        <div><dt>Pitch</dt><dd id="fPitch">—</dd></div>
+        <div><dt>Level</dt><dd><span class="bar"><i id="fLevel"></i></span></dd></div>
+      </dl>
+      <h2>Neuromodulators</h2>
+      <div class="meters">
+        <div class="meter"><span>Dopamine</span><span class="bar da"><i id="mDa"></i></span><em id="mDaWhy"></em></div>
+        <div class="meter"><span>Norepinephrine</span><span class="bar ne"><i id="mNe"></i></span><em id="mNeWhy"></em></div>
+        <div class="meter"><span>Serotonin</span><span class="bar ht"><i id="mHt"></i></span><em id="mHtWhy"></em></div>
+      </div>
+      <h2>Memory</h2>
+      <dl class="facts">
+        <div><dt>Melodies recognised</dt><dd id="fRepMel">0</dd></div>
+        <div><dt>Progressions</dt><dd id="fRepChord">0</dd></div>
+        <div><dt>Samples</dt><dd id="fRepSample">0</dd></div>
+        <div><dt>Synapses formed</dt><dd id="fConn">0</dd></div>
+      </dl>
+      <h2>Regions</h2>
+      <ul class="legend" id="legend"></ul>
+    </div>
+  </aside>
+
+  <div class="dock">
+    <div class="row">
+      <button class="btn" id="btnMic">Microphone</button>
+      <label class="btn" for="fileIn" id="lblFile">Upload track</label>
+      <input id="fileIn" type="file" accept="audio/*" hidden>
+      <button class="btn" id="btnDemo">Demo loop</button>
+      <button class="btn quiet" id="btnStop" hidden>Stop</button>
+    </div>
+    <div class="transport panel" id="transport" hidden>
+      <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
+      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+      <span class="t" id="time">0:00 / 0:00</span>
+      <span class="name" id="trackName"></span>
+    </div>
+    <div class="row">
+      <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>
+      <button class="btn icon" id="zOut" aria-label="Zoom out">−</button>
+      <button class="btn quiet" id="zReset">Reset view</button>
+      <span class="hint">Scroll or pinch to zoom in on receptors. Drag to pan. Double-click a region to visit it.</span>
+    </div>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+(() => {
+'use strict';
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function fnv(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function lerpHue(a, b, t) { let d = ((b - a) % 360 + 540) % 360 - 180; return (a + d * t + 360) % 360; }
+const NOTE_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- geometry ----------
+function catmull(pts, closed, sub = 8) {
+  const out = [], n = pts.length, cnt = closed ? n : n - 1;
+  for (let i = 0; i < cnt; i++) {
+    const p0 = pts[closed ? (i - 1 + n) % n : Math.max(i - 1, 0)], p1 = pts[i];
+    const p2 = pts[closed ? (i + 1) % n : Math.min(i + 1, n - 1)], p3 = pts[closed ? (i + 2) % n : Math.min(i + 2, n - 1)];
+    for (let j = 0; j < sub; j++) {
+      const t = j / sub, t2 = t * t, t3 = t2 * t;
+      out.push([
+        0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+        0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)]);
+    }
+  }
+  if (!closed) out.push(pts[n - 1].slice());
+  return out;
+}
+function ellipsePoly(cx, cy, rx, ry, rot = 0, n = 40) {
+  const out = [], c = Math.cos(rot), s = Math.sin(rot);
+  for (let i = 0; i < n; i++) { const a = i / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry; out.push([cx + x * c - y * s, cy + x * s + y * c]); }
+  return out;
+}
+function pointInPoly(poly, x, y) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function polyArea(poly) { let a = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]); return Math.abs(a / 2); }
+function bbox(poly) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const p of poly) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; } return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; }
+function centroid(poly) { let x = 0, y = 0; for (const p of poly) { x += p[0]; y += p[1]; } return [x / poly.length, y / poly.length]; }
+function samplePoly(poly, minDist, rng, reject) {
+  const bb = bbox(poly), cell = minDist / Math.SQRT2;
+  const gw = Math.ceil(bb.w / cell) + 1, gh = Math.ceil(bb.h / cell) + 1;
+  const grid = new Int32Array(gw * gh).fill(-1), pts = [];
+  const target = Math.floor(polyArea(poly) / (minDist * minDist * 0.95));
+  let tries = 0; const maxTries = target * 40 + 200;
+  while (pts.length < target && tries < maxTries) {
+    tries++;
+    const x = bb.x + rng() * bb.w, y = bb.y + rng() * bb.h;
+    if (!pointInPoly(poly, x, y)) continue;
+    if (reject && reject(x, y)) continue;
+    const gx = ((x - bb.x) / cell) | 0, gy = ((y - bb.y) / cell) | 0; let ok = true;
+    for (let j = -2; j <= 2 && ok; j++) for (let i = -2; i <= 2; i++) {
+      const nx = gx + i, ny = gy + j; if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+      const k = grid[ny * gw + nx]; if (k >= 0) { const dx = pts[k][0] - x, dy = pts[k][1] - y; if (dx * dx + dy * dy < minDist * minDist) { ok = false; break; } }
+    }
+    if (!ok) continue;
+    grid[gy * gw + gx] = pts.length; pts.push([x, y]);
+  }
+  return pts;
+}
+
+// ---------- anatomy (sagittal view, facing left; world space 1000 x 820) ----------
+const NT = {
+  da: { name: 'Dopamine', hue: 318, receptor: 'D1 / D2 receptors', css: '#ff5fb4' },
+  ne: { name: 'Norepinephrine', hue: 40, receptor: 'β-adrenergic receptors', css: '#ffb347' },
+  ht: { name: 'Serotonin', hue: 150, receptor: '5-HT receptors', css: '#5fe0a8' },
+  glu: { name: 'Glutamate', hue: 200, receptor: 'AMPA / NMDA receptors', css: '#7fd3ff' },
+};
+const CHORD_HUE = [42, 258, 178, 318]; // maj, min, dim, sus
+
+const REGIONS = [
+  { id: 'pfc', name: 'Prefrontal cortex', pts: [[178, 470], [162, 385], [190, 300], [245, 230], [330, 195], [385, 200], [395, 290], [365, 370], [300, 430], [240, 468]], hue: 262, sat: 55, light: 62, layer: 1, nt: 'da', desc: 'Harmony and expectation. Flashes on every chord change, coloured by chord quality (gold major, indigo minor, teal diminished, magenta suspended).' },
+  { id: 'motor', name: 'Motor & premotor cortex', pts: [[385, 200], [475, 172], [505, 320], [470, 395], [400, 425], [365, 370], [395, 290]], hue: 12, sat: 70, light: 60, layer: 1, nt: 'glu', desc: 'The beat. Pulses with each onset and with the predicted pulse.' },
+  { id: 'parietal', name: 'Parietal cortex', pts: [[475, 172], [590, 180], [700, 215], [770, 285], [700, 345], [600, 372], [520, 378], [505, 320]], hue: 196, sat: 45, light: 60, layer: 1, nt: 'ne', desc: 'Midrange energy. Brightens under norepinephrine.' },
+  { id: 'occipital', name: 'Occipital cortex', pts: [[770, 285], [835, 370], [825, 450], [760, 490], [690, 465], [645, 405], [700, 345]], hue: 222, sat: 50, light: 62, layer: 1, nt: 'ne', desc: 'High frequencies shimmer here. Brightens under norepinephrine.' },
+  { id: 'temporal', name: 'Temporal cortex', pts: [[282, 478], [335, 440], [440, 405], [520, 392], [600, 385], [645, 405], [650, 450], [590, 490], [470, 520], [345, 528]], hue: 182, sat: 45, light: 58, layer: 1, nt: 'glu', desc: 'Overall loudness and timbre.' },
+  { id: 'auditory', name: 'Auditory cortex', pts: [[410, 416], [470, 401], [560, 394], [614, 400], [604, 432], [520, 440], [438, 450], [400, 444]], hue: 168, sat: 75, light: 66, layer: 2, pri: 2, sp: 5.0, r: 2.1, nt: 'glu', desc: 'Tonotopic map: low frequencies at the front, high at the back. Each dot follows one band of the live spectrum.' },
+  { id: 'cingulate', name: 'Cingulate cortex', pts: [[345, 300], [420, 250], [520, 232], [620, 245], [690, 290], [680, 318], [610, 282], [520, 268], [430, 282], [360, 325]], hue: 285, sat: 55, light: 62, layer: 2, pri: 3, nt: 'ht', limbic: true, hueOff: 10, desc: 'Limbic. Undulates with the key: warm in major, cool in minor. Flashes with harmonic tension.' },
+  { id: 'striatum', name: 'Striatum (basal ganglia)', ellipse: [455, 352, 48, 42, 0], hue: 30, sat: 80, light: 62, layer: 2, pri: 4, nt: 'da', desc: 'Groove. Locks to the beat; dopamine makes it glow.' },
+  { id: 'thalamus', name: 'Thalamus', ellipse: [545, 370, 58, 36, 0], hue: 204, sat: 55, light: 66, layer: 2, pri: 4, nt: 'ne', desc: 'Relay. Brightness follows loudness; every pathway passes through.' },
+  { id: 'hypothalamus', name: 'Hypothalamus', ellipse: [498, 438, 30, 18, 0], hue: 22, sat: 70, light: 62, layer: 2, pri: 5, nt: 'ne', limbic: true, hueOff: -20, desc: 'Arousal. Follows norepinephrine and loudness.' },
+  { id: 'hippocampus', name: 'Hippocampus', pts: [[455, 478], [500, 462], [560, 450], [615, 438], [640, 452], [600, 470], [540, 484], [480, 496]], hue: 272, sat: 60, light: 64, layer: 2, pri: 4, nt: 'glu', limbic: true, hueOff: -10, desc: 'Memory. Flashes when a melody, chord progression or sample is recognised, and wires neurons to the cortex.' },
+  { id: 'amygdala', name: 'Amygdala', ellipse: [435, 468, 20, 16, 0], hue: 345, sat: 75, light: 60, layer: 2, pri: 5, nt: 'ht', limbic: true, hueOff: 25, desc: 'Emotional salience. Minor tonality and sudden loud transients.' },
+  { id: 'accumbens', name: 'Nucleus accumbens', ellipse: [405, 428, 22, 18, 0], hue: 318, sat: 80, light: 66, layer: 2, pri: 5, nt: 'da', desc: 'Reward. Lights up with dopamine: drops, resolutions, predicted beats.' },
+  { id: 'cerebellum', name: 'Cerebellum', pts: [[615, 485], [710, 495], [790, 525], [780, 600], [700, 640], [610, 615], [575, 545]], hue: 300, sat: 40, light: 58, layer: 1, nt: 'glu', desc: 'Timing. Ticks on every predicted beat, even in the silence between hits.' },
+  { id: 'brainstem', name: 'Brainstem', pts: [[505, 468], [575, 478], [592, 545], [585, 660], [550, 720], [505, 720], [490, 610], [495, 520]], hue: 212, sat: 35, light: 56, layer: 1, nt: 'glu', desc: 'Sound arrives here first and climbs to the thalamus.' },
+  { id: 'vta', name: 'Ventral tegmental area', ellipse: [540, 520, 12, 10, 0], hue: 318, sat: 90, light: 68, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'da', label: [26, 4], desc: 'Dopamine source. Fires on drops, cadences, melodic leaps and beats that land where predicted.' },
+  { id: 'lc', name: 'Locus coeruleus', ellipse: [562, 600, 10, 9, 0], hue: 40, sat: 95, light: 66, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ne', label: [26, 4], desc: 'Norepinephrine source. Fires on tempo changes and sudden loudness.' },
+  { id: 'raphe', name: 'Raphe nuclei', ellipse: [540, 645, 10, 10, 0], hue: 150, sat: 70, light: 64, layer: 2, pri: 6, sp: 4, r: 2.3, nt: 'ht', label: [26, 4], desc: 'Serotonin source. Rises with steady tempo and major tonality.' },
+];
+
+const PATHWAYS = [
+  { id: 'mesolimbic', name: 'Mesolimbic dopamine pathway', nt: 'da', pts: [[540, 520], [495, 505], [445, 480], [408, 440]], to: 'accumbens' },
+  { id: 'mesocortical', name: 'Mesocortical dopamine pathway', nt: 'da', pts: [[540, 520], [480, 505], [400, 470], [320, 415], [262, 335]], to: 'pfc' },
+  { id: 'ne1', name: 'Noradrenergic projection', nt: 'ne', pts: [[562, 600], [548, 540], [545, 420], [480, 300], [400, 215]], to: 'motor' },
+  { id: 'ne2', name: 'Noradrenergic projection', nt: 'ne', pts: [[562, 600], [548, 540], [545, 420], [600, 300], [660, 215]], to: 'parietal' },
+  { id: 'ne3', name: 'Noradrenergic projection', nt: 'ne', pts: [[562, 600], [548, 540], [560, 420], [690, 390], [790, 380]], to: 'occipital' },
+  { id: 'ne4', name: 'Noradrenergic projection', nt: 'ne', pts: [[562, 600], [550, 545], [520, 470], [498, 438]], to: 'hypothalamus' },
+  { id: 'ht1', name: 'Serotonergic projection', nt: 'ht', pts: [[540, 645], [525, 570], [505, 480], [470, 462], [437, 468]], to: 'amygdala' },
+  { id: 'ht2', name: 'Serotonergic projection', nt: 'ht', pts: [[540, 645], [520, 570], [500, 460], [455, 400], [400, 330], [340, 275]], to: 'cingulate' },
+  { id: 'ht3', name: 'Serotonergic projection', nt: 'ht', pts: [[540, 645], [535, 575], [560, 500], [590, 455], [610, 445]], to: 'hippocampus' },
+  { id: 'auditoryPath', name: 'Ascending auditory pathway', nt: 'glu', pts: [[515, 700], [512, 620], [545, 560], [585, 480], [585, 400], [530, 430]], to: 'auditory' },
+  { id: 'arcuate', name: 'Arcuate fasciculus', nt: 'glu', pts: [[565, 395], [610, 340], [560, 250], [440, 236], [350, 280], [300, 340]], to: 'pfc' },
+  { id: 'ctc', name: 'Cerebello-thalamo-cortical loop', nt: 'glu', pts: [[690, 560], [615, 515], [565, 420], [525, 300], [470, 220]], to: 'motor' },
+  { id: 'fornix', name: 'Hippocampal–prefrontal loop', nt: 'glu', pts: [[610, 450], [600, 380], [540, 318], [450, 300], [370, 330], [300, 360]], to: 'pfc' },
+  { id: 'striatal', name: 'Cortico-striatal loop', nt: 'da', pts: [[455, 352], [462, 290], [470, 225]], to: 'motor' },
+  { id: 'callosum', name: 'Corpus callosum', nt: 'glu', pts: [[335, 330], [400, 290], [510, 272], [620, 282], [690, 330]], to: null },
+];
+
+const SKULL = {
+  outline: [[115, 330], [120, 250], [175, 170], [280, 120], [430, 100], [600, 105], [760, 150], [870, 250], [905, 370], [880, 500], [810, 610], [720, 680], [640, 715], [585, 722], [560, 700], [500, 690], [420, 700], [300, 690], [200, 660], [160, 610], [130, 560], [110, 500], [90, 440], [95, 385]],
+  orbit: [192, 402, 44, 37, -0.25],
+  zygomatic: [[236, 446], [300, 452], [370, 450], [432, 446]],
+  mandible: [[150, 560], [148, 600], [172, 640], [240, 668], [360, 680], [470, 672], [520, 630], [540, 575]],
+  teeth: { x0: 158, x1: 262, y: 598, n: 7 },
+  sutures: [[[430, 100], [455, 130], [470, 172]], [[790, 175], [770, 215], [770, 285]]],
+};
+
+// ---------- build dots ----------
+const rng0 = mulberry32(1337);
+const regions = REGIONS.map((r, i) => {
+  const poly = r.pts ? catmull(r.pts, true, 8) : ellipsePoly(...r.ellipse);
+  const bb = bbox(poly), c = centroid(poly);
+  return Object.assign({}, r, { i, poly, bb, cx: c[0], cy: c[1], small: bb.w < 70 });
+});
+const regionById = {}; regions.forEach(r => regionById[r.id] = r);
+const inner = regions.filter(r => r.layer === 2).sort((p, q) => q.pri - p.pri);
+function insideInner(x, y, minPri) { for (const r of inner) { if (r.pri <= minPri) break; if (x < r.bb.x || x > r.bb.x + r.bb.w || y < r.bb.y || y > r.bb.y + r.bb.h) continue; if (pointInPoly(r.poly, x, y)) return true; } return false; }
+const tmp = [];
+regions.forEach(r => {
+  const sp = r.sp || (r.layer === 2 ? 5.6 : 7.4);
+  const pri = r.layer === 1 ? 0 : r.pri; const pts = samplePoly(r.poly, sp, rng0, (x, y) => insideInner(x, y, pri));
+  r.start = tmp.length;
+  for (const p of pts) tmp.push({ x: p[0], y: p[1], reg: r.i, tone: rng0() * 2 - 1, size: (r.r || 2.2) * (0.72 + rng0() * 0.56), phase: rng0() * TAU, u: (p[0] - r.bb.x) / r.bb.w, seed: (rng0() * 4294967295) >>> 0 });
+  r.end = tmp.length;
+});
+const ND = tmp.length;
+const D = { x: new Float32Array(ND), y: new Float32Array(ND), reg: new Int16Array(ND), tone: new Float32Array(ND), size: new Float32Array(ND), phase: new Float32Array(ND), u: new Float32Array(ND), seed: new Uint32Array(ND), a: new Float32Array(ND), hue: new Float32Array(ND) };
+tmp.forEach((d, i) => { D.x[i] = d.x; D.y[i] = d.y; D.reg[i] = d.reg; D.tone[i] = d.tone; D.size[i] = d.size; D.phase[i] = d.phase; D.u[i] = d.u; D.seed[i] = d.seed; });
+
+const paths = PATHWAYS.map((p, i) => {
+  const curve = catmull(p.pts, false, 12);
+  let total = 0; for (let k = 1; k < curve.length; k++) total += Math.hypot(curve[k][0] - curve[k - 1][0], curve[k][1] - curve[k - 1][1]);
+  const spacing = 5.5, pts = []; let acc = 0, next = 0;
+  for (let k = 1; k < curve.length; k++) {
+    const a = curve[k - 1], b = curve[k], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    while (next <= acc + L && L > 0) { const f = (next - acc) / L; pts.push({ x: lerp(a[0], b[0], f) + (rng0() - 0.5) * 1.6, y: lerp(a[1], b[1], f) + (rng0() - 0.5) * 1.6, t: next / total, r: 1.3 + rng0() * 0.8 }); next += spacing; }
+    acc += L;
+  }
+  return Object.assign({}, p, { i, curve, pts, length: total, glow: new Float32Array(pts.length), lastSpawn: -1, hue: NT[p.nt].hue, toR: p.to ? regionById[p.to] : null });
+});
+const pathById = {}; paths.forEach(p => pathById[p.id] = p);
+
+// ---------- audio feature extraction ----------
+const CHORD_T = [
+  { q: 0, iv: [0, 4, 7], w: [1, .9, .8], sym: '' },
+  { q: 1, iv: [0, 3, 7], w: [1, .9, .8], sym: 'm' },
+  { q: 2, iv: [0, 3, 6], w: [1, .9, .85], sym: '°' },
+  { q: 3, iv: [0, 5, 7], w: [1, .85, .85], sym: 'sus4' },
+];
+const KK_MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KK_MIN = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+function pearson(a, b, rot) { let ma = 0, mb = 0; for (let i = 0; i < 12; i++) { ma += a[i]; mb += b[i]; } ma /= 12; mb /= 12; let n = 0, da = 0, db = 0; for (let i = 0; i < 12; i++) { const x = a[(i + rot) % 12] - ma, y = b[i] - mb; n += x * y; da += x * x; db += y * y; } return da > 0 && db > 0 ? n / Math.sqrt(da * db) : 0; }
+
+class Features {
+  constructor(ac, an) {
+    this.ac = ac; this.an = an; this.sr = ac.sampleRate; this.N = an.frequencyBinCount; this.fft = an.fftSize; this.binHz = this.sr / this.fft;
+    this.db = new Float32Array(this.N); this.mag = new Float32Array(this.N); this.prev = new Float32Array(this.N); this.td = new Float32Array(this.fft);
+    this.bandEdges = [20, 120, 250, 500, 1000, 2000, 4000, 8000, 16000]; this.bands = new Float32Array(8); this.bandPeak = new Float32Array(8).fill(1e-3);
+    this.spec = new Float32Array(64); this.specRaw = new Float32Array(64); this.specPeak = 1e-3;
+    this.chroma = new Float32Array(12); this.chromaS = new Float32Array(12); this.chromaK = new Float32Array(12);
+    this.pc = new Int8Array(this.N).fill(-1); this.pcw = new Float32Array(this.N);
+    for (let i = 1; i < this.N; i++) { const f = i * this.binHz; if (f < 55 || f > 5000) continue; const m = 69 + 12 * Math.log2(f / 440); this.pc[i] = ((Math.round(m) % 12) + 12) % 12; this.pcw[i] = f < 110 ? 0.35 : f < 2000 ? 1 : Math.max(0.2, 1 - (f - 2000) / 4000); }
+    this.rms = 0; this.loudPeak = 0.05; this.loudFast = 0; this.loudSlow = 0; this.loudN = 0; this.silence = true;
+    this.fluxMean = 0.1; this.fluxHist = [0, 0, 0]; this.lastOnset = -1; this.onsets = []; this.onsetDensity = 0; this.onsetStrength = 0;
+    this.bpm = 0; this.bpmConf = 0; this.bpmDisagree = 0; this.lastTempoCalc = 0; this.period = 0.5; this.anchor = -1; this.tickK = -1; this.beatPhase = 0; this.bpmChangedAt = -10;
+    this.chord = { root: -1, q: 0, name: '—', score: 0 }; this.chordCand = -1; this.chordCandN = 0; this.chordSeq = []; this.lastChordT = -1; this.chordEnergy = 0;
+    this.key = { root: -1, mode: 0, conf: 0, name: '—' }; this.keyCand = -1; this.keyCandT = 0; this.modeMix = 0.5; this.tension = 0;
+    this.pitch = { f: 0, midi: -1, clarity: 0, note: '—' }; this.heldMidi = -1; this.noteHold = 0; this.lastNoteMidi = -1; this.lastNoteT = -10; this.melodySeq = []; this.peakMidi = -1; this.peakMidiT = -10;
+    this.pbuf = new Float32Array(1024); this.nsdf = new Float32Array(1024); this.fp = new Float32Array(24);
+    this.protos = []; this.protoId = 0; this.repCounts = { melody: 0, chord: 0, sample: 0 };
+    this.centroid = 0; this.centroidS = 0; this.events = []; this.now = 0; this.lastDrop = -10; this.frames = 0; this.startT = -1;
+  }
+  emit(e) { this.events.push(e); }
+  update(now, dt, active) {
+    this.events.length = 0; this.now = now;
+    if (!active) { this.loudFast *= 0.9; this.loudN = this.loudFast; this.silence = true; return; }
+    if (this.startT < 0) this.startT = now;
+    const an = this.an, N = this.N, mag = this.mag, prev = this.prev, db = this.db, td = this.td;
+    an.getFloatFrequencyData(db); an.getFloatTimeDomainData(td);
+    let s = 0; for (let i = 0; i < td.length; i += 2) s += td[i] * td[i];
+    const rms = Math.sqrt(s / (td.length / 2)); this.rms = rms;
+    this.loudPeak = Math.max(rms, this.loudPeak * Math.exp(-dt / 25), 0.02);
+    const loudN = clamp(rms / this.loudPeak, 0, 1);
+    this.loudFast += (loudN - this.loudFast) * Math.min(1, dt / 0.08);
+    this.loudSlow += (loudN - this.loudSlow) * Math.min(1, dt / 2.5);
+    this.loudN = this.loudFast; this.silence = rms < 0.004;
+
+    let flux = 0, cnum = 0, cden = 0; const maxBin = Math.min(N, Math.floor(8000 / this.binHz));
+    for (let i = 1; i < N; i++) { const d = db[i]; const m = d <= -110 ? 0 : Math.pow(10, d * 0.05); mag[i] = m; if (i < maxBin) { const df = m - prev[i]; if (df > 0) flux += df; cnum += m * i; cden += m; } }
+    this.centroid = cden > 0 ? cnum / cden * this.binHz : 0; this.centroidS += (this.centroid - this.centroidS) * Math.min(1, dt / 0.3);
+    const be = this.bandEdges;
+    for (let k = 0; k < 8; k++) {
+      const i0 = Math.max(1, Math.floor(be[k] / this.binHz)), i1 = Math.min(N - 1, Math.floor(be[k + 1] / this.binHz)); let e = 0;
+      for (let i = i0; i <= i1; i++) e += mag[i] * mag[i]; e = Math.sqrt(e / (i1 - i0 + 1));
+      this.bandPeak[k] = Math.max(e, this.bandPeak[k] * Math.exp(-dt / 15), 1e-4);
+      const v = clamp(e / this.bandPeak[k], 0, 1); this.bands[k] += (v - this.bands[k]) * (v > this.bands[k] ? 0.6 : Math.min(1, dt / 0.25));
+    }
+    let smax = 0;
+    for (let k = 0; k < 64; k++) { const f = 55 * Math.pow(2, k / 64 * 8), fi = f / this.binHz, i = Math.floor(fi), fr = fi - i; const m = i + 1 < N ? mag[i] * (1 - fr) + mag[i + 1] * fr : 0; const v = m * Math.pow(f / 55, 0.45); this.specRaw[k] = v; if (v > smax) smax = v; }
+    this.specPeak = Math.max(smax, this.specPeak * Math.exp(-dt / 6), 1e-4);
+    for (let k = 0; k < 64; k++) { const v = clamp(this.specRaw[k] / this.specPeak, 0, 1), cur = this.spec[k]; this.spec[k] = v > cur ? cur + (v - cur) * 0.55 : cur + (v - cur) * Math.min(1, dt / 0.18); }
+
+    this.fluxMean += (flux - this.fluxMean) * Math.min(1, dt / 1.5);
+    const fn = flux / (this.fluxMean + 1e-6), fh = this.fluxHist; fh[0] = fh[1]; fh[1] = fh[2]; fh[2] = fn;
+    this.onsetStrength *= Math.exp(-dt / 0.12);
+    if (fh[1] > fh[0] && fh[1] >= fh[2] && fh[1] > 1.5 && !this.silence && now - this.lastOnset > 0.09) {
+      const strength = clamp((fh[1] - 1.2) / 4, 0.1, 1) * (0.45 + 0.55 * loudN); this.onsetStrength = Math.max(this.onsetStrength, strength); this.onset(now - dt, strength);
+    }
+    // chroma from spectral peaks
+    const ch = this.chroma; ch.fill(0);
+    for (let i = 2; i < N - 1; i++) { const p = this.pc[i]; if (p < 0) continue; const m = mag[i]; if (m > mag[i - 1] && m >= mag[i + 1]) ch[p] += m * this.pcw[i]; }
+    let cs = 0; for (let p = 0; p < 12; p++) cs += ch[p];
+    if (cs > 1e-6 && !this.silence) { const a = Math.min(1, dt / 0.2), ak = Math.min(1, dt / 7); for (let p = 0; p < 12; p++) { ch[p] /= cs; this.chromaS[p] += (ch[p] - this.chromaS[p]) * a; this.chromaK[p] += (ch[p] - this.chromaK[p]) * ak; } }
+    if (!this.silence) { this.detectChord(now); this.detectKey(now, dt); this.detectPitch(now, dt); } else this.releasePitch(now);
+    if (now - this.lastTempoCalc > 0.5) { this.lastTempoCalc = now; this.computeTempo(now); }
+    this.trackBeats(now);
+    if (this.loudFast > this.loudSlow + 0.3 && this.loudSlow < 0.55 && now - this.lastDrop > 5 && now - this.startT > 3) { this.lastDrop = now; this.emit({ type: 'drop', amt: clamp((this.loudFast - this.loudSlow) * 1.6, 0.4, 1) }); }
+    let dens = 0; for (let i = this.onsets.length - 1; i >= 0 && now - this.onsets[i].t < 2; i--) dens++;
+    this.onsetDensity += (clamp(dens / 16, 0, 1) - this.onsetDensity) * Math.min(1, dt / 1);
+    prev.set(mag); this.frames++;
+  }
+  fingerprint() { const fp = this.fp; fp.fill(0); for (let k = 0; k < 64; k++) fp[Math.min(23, (k * 24 / 64) | 0)] += this.specRaw[k]; let n = 0; for (let k = 0; k < 24; k++) n += fp[k] * fp[k]; n = Math.sqrt(n) || 1; const out = new Float32Array(24); for (let k = 0; k < 24; k++) out[k] = fp[k] / n; return out; }
+  onset(t, strength) {
+    this.lastOnset = t; const fp = this.fingerprint();
+    this.onsets.push({ t, strength }); while (this.onsets.length && t - this.onsets[0].t > 8) this.onsets.shift();
+    this.emit({ type: 'onset', strength, t });
+    if (this.bpm > 0 && this.bpmConf > 0.2 && this.anchor >= 0) {
+      const ph = (t - this.anchor) / this.period, k = Math.round(ph), pred = this.anchor + k * this.period, off = t - pred;
+      if (Math.abs(off) < 0.12 * this.period && strength > 0.3) { this.emit({ type: 'da', amt: 0.05 + 0.07 * strength, why: 'beat landed as predicted' }); this.anchor += off * 0.3; }
+      else if (strength > 0.7 && this.bpmConf < 0.5) { this.anchor += off * 0.5; }
+      this.tickK = Math.floor((t - this.anchor) / this.period);
+    }
+    if (strength > 0.22) {
+      let best = -1, bs = 0;
+      for (let i = 0; i < this.protos.length; i++) { const v = this.protos[i].v; let d = 0; for (let k = 0; k < 24; k++) d += v[k] * fp[k]; if (d > bs) { bs = d; best = i; } }
+      if (bs > 0.93) { const p = this.protos[best]; if (t - p.last > 0.2) { p.count++; p.last = t; if (p.count >= 2) { this.repCounts.sample++; this.emit({ type: 'rep', kind: 'sample', hash: 's' + p.id, count: p.count, strength }); } } }
+      else { this.protos.push({ v: fp, count: 1, last: t, id: this.protoId++ }); if (this.protos.length > 48) { let li = 0; for (let i = 1; i < this.protos.length; i++) if (this.protos[i].last < this.protos[li].last) li = i; this.protos.splice(li, 1); } }
+    }
+  }
+  computeTempo(now) {
+    const os = this.onsets; if (os.length < 6) { this.bpmConf *= 0.85; return; }
+    const hist = new Float32Array(121); let total = 0;
+    for (let i = 0; i < os.length; i++) for (let j = i + 1; j < os.length; j++) {
+      const d = os[j].t - os[i].t; if (d < 0.2) continue; if (d > 2.4) break; const w = os[i].strength * os[j].strength;
+      let p = d; while (p > 1.0) p /= 2; while (p < 0.33334) p *= 2; const c = 60 / p - 60;
+      for (let k = Math.max(0, Math.floor(c - 3)); k <= Math.min(120, Math.ceil(c + 3)); k++) { const g = Math.exp(-((k - c) * (k - c)) / 3); hist[k] += w * g; total += w * g; }
+    }
+    if (total <= 0) return;
+    let bi = 0, bv = -1;
+    for (let k = 0; k <= 120; k++) { const pref = Math.exp(-((k + 60 - 112) ** 2) / (2 * 38 * 38)); const v = hist[k] * (0.55 + 0.45 * pref); if (v > bv) { bv = v; bi = k; } }
+    let cand = 60 + bi;
+    if (bi > 0 && bi < 120) { const y0 = hist[bi - 1], y1 = hist[bi], y2 = hist[bi + 1], den = y0 - 2 * y1 + y2; if (Math.abs(den) > 1e-9) cand += 0.5 * (y0 - y2) / den; }
+    const conf = clamp(hist[bi] / (total / 12), 0, 1); this.bpmConf += (conf - this.bpmConf) * 0.5;
+    if (this.bpm === 0) { if (conf > 0.25) { this.bpm = cand; this.period = 60 / cand; this.anchor = this.lastOnset; this.tickK = Math.floor((now - this.anchor) / this.period); } return; }
+    const rel = (a, b) => Math.abs(a - b) / b;
+    const near = rel(cand, this.bpm) < 0.045, family = near || rel(cand, this.bpm * 2) < 0.045 || rel(cand * 2, this.bpm) < 0.045;
+    if (family) { if (near) this.bpm += (cand - this.bpm) * 0.3; this.bpmDisagree = 0; }
+    else { this.bpmDisagree++; if (this.bpmDisagree >= 3 && conf > 0.25) { const from = this.bpm; this.bpm = cand; this.bpmDisagree = 0; this.bpmChangedAt = now; this.emit({ type: 'bpm', from, to: cand }); this.emit({ type: 'ne', amt: clamp(rel(cand, from) * 3.2, 0.35, 1), why: 'tempo ' + (cand > from ? 'rose' : 'fell') + ' ' + Math.round(from) + '→' + Math.round(cand) }); } }
+    this.period = 60 / this.bpm;
+  }
+  trackBeats(now) {
+    if (this.bpm <= 0 || this.bpmConf < 0.12 || this.anchor < 0) { this.beatPhase = 0; return; }
+    const k = Math.floor((now - this.anchor) / this.period);
+    if (k > this.tickK) { this.tickK = k; this.emit({ type: 'beat', k }); }
+    this.beatPhase = ((now - this.anchor) / this.period) % 1;
+  }
+  detectChord(now) {
+    const c = this.chromaS; let best = -1e9, br = -1, bq = 0;
+    for (let q = 0; q < CHORD_T.length; q++) { const t = CHORD_T[q]; for (let r = 0; r < 12; r++) { let s = 0, tot = 0; for (let k = 0; k < 3; k++) { const v = c[(r + t.iv[k]) % 12]; s += v * t.w[k]; tot += v; } s -= 0.3 * (1 - tot); if (q >= 2) s -= 0.04; if (s > best) { best = s; br = r; bq = q; } } }
+    const sorted = Array.from(c).sort((a, b) => b - a); this.chordEnergy = sorted[0] + sorted[1] + sorted[2];
+    let ent = 0; for (let p = 0; p < 12; p++) if (c[p] > 1e-6) ent -= c[p] * Math.log(c[p]); this.tension += (clamp((ent / Math.log(12) - 0.55) / 0.4, 0, 1) - this.tension) * 0.05;
+    if (this.chordEnergy < 0.42) { this.chordCandN = 0; return; }
+    const id = br * 4 + bq;
+    if (id === this.chord.root * 4 + this.chord.q) { this.chord.score = best; this.chordCandN = 0; return; }
+    if (id === this.chordCand) this.chordCandN++; else { this.chordCand = id; this.chordCandN = 1; }
+    if (this.chordCandN >= 5 && now - this.lastChordT > 0.25) {
+      const prev = Object.assign({}, this.chord);
+      this.chord = { root: br, q: bq, name: NOTE_NAMES[br] + CHORD_T[bq].sym, score: best }; this.lastChordT = now; this.chordCandN = 0;
+      let resolved = false;
+      if (this.key.root >= 0 && prev.root >= 0 && prev.root === (this.key.root + 7) % 12 && br === this.key.root && (bq === this.key.mode)) resolved = true;
+      this.emit({ type: 'chord', root: br, q: bq, name: this.chord.name, prevQ: prev.q, resolved });
+      if (resolved) { this.emit({ type: 'da', amt: 0.4, why: 'cadence resolved to ' + this.chord.name }); this.emit({ type: 'ht', amt: 0.25, why: 'resolution' }); }
+      if (bq === 1 && prev.q === 0) this.emit({ type: 'ne', amt: 0.1, why: 'shift to minor' });
+      this.chordSeq.push(id); if (this.chordSeq.length > 48) this.chordSeq.shift();
+      this.checkRepetition(this.chordSeq, 'chord', [4, 3]);
+    }
+  }
+  checkRepetition(seq, kind, ns) {
+    for (const n of ns) {
+      if (seq.length < 2 * n) continue;
+      const last = seq.slice(-n).join(','); let count = 0;
+      for (let i = 0; i + n <= seq.length - n; i++) if (seq.slice(i, i + n).join(',') === last) count++;
+      if (count > 0) { this.repCounts[kind]++; this.emit({ type: 'rep', kind, hash: kind + ':' + last, count: count + 1 }); return true; }
+    }
+    return false;
+  }
+  detectKey(now, dt) {
+    const c = this.chromaK; let bestMaj = -2, bestMin = -2, bestR = 0, bestM = 0, best = -2;
+    for (let r = 0; r < 12; r++) { const a = pearson(c, KK_MAJ, r), b = pearson(c, KK_MIN, r); if (a > bestMaj) bestMaj = a; if (b > bestMin) bestMin = b; if (a > best) { best = a; bestR = r; bestM = 0; } if (b > best) { best = b; bestR = r; bestM = 1; } }
+    const target = 1 / (1 + Math.exp(-(bestMaj - bestMin) * 9)); this.modeMix += (target - this.modeMix) * Math.min(1, dt / 2.5);
+    const id = bestR * 2 + bestM;
+    if (id !== this.key.root * 2 + this.key.mode) { if (id !== this.keyCand) { this.keyCand = id; this.keyCandT = now; } else if (now - this.keyCandT > 1.5 && best > 0.3) { this.key = { root: bestR, mode: bestM, conf: best, name: NOTE_NAMES[bestR] + (bestM ? ' minor' : ' major') }; } }
+    else this.key.conf = best;
+  }
+  detectPitch(now, dt) {
+    const td = this.td, x = this.pbuf, M = 1024; let e0 = 0;
+    for (let i = 0; i < M; i++) { const v = (td[2 * i] + td[2 * i + 1]) * 0.5; x[i] = v; e0 += v * v; }
+    if (e0 < 1e-5) { this.releasePitch(now); return; }
+    const sr2 = this.sr / 2, minLag = Math.max(2, Math.floor(sr2 / 1100)), maxLag = Math.min(M >> 1, Math.floor(sr2 / 55)), nsdf = this.nsdf;
+    for (let lag = minLag; lag <= maxLag; lag++) { let acf = 0, m = 0; const L = M - lag; for (let i = 0; i < L; i++) { const a = x[i], b = x[i + lag]; acf += a * b; m += a * a + b * b; } nsdf[lag] = m > 0 ? 2 * acf / m : 0; }
+    let vmax = 0; const peaks = []; let crossed = false;
+    for (let lag = minLag + 1; lag < maxLag; lag++) { if (!crossed) { if (nsdf[lag] < 0) crossed = true; continue; } if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] >= nsdf[lag + 1]) { peaks.push(lag); if (nsdf[lag] > vmax) vmax = nsdf[lag]; } }
+    if (!peaks.length || vmax < 0.82) { this.releasePitch(now); return; }
+    let lag = peaks.find(p => nsdf[p] >= 0.9 * vmax);
+    const y0 = nsdf[lag - 1], y1 = nsdf[lag], y2 = nsdf[lag + 1], den = y0 - 2 * y1 + y2; let fl = lag; if (Math.abs(den) > 1e-9) fl += 0.5 * (y0 - y2) / den;
+    const f = sr2 / fl; if (f < 55 || f > 1100) { this.releasePitch(now); return; }
+    const midiF = 69 + 12 * Math.log2(f / 440), midi = Math.round(midiF);
+    this.pitch = { f, midi, clarity: nsdf[lag], note: NOTE_NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1) };
+    if (midi === this.heldMidi) this.noteHold += dt; else { this.heldMidi = midi; this.noteHold = 0; }
+    if (this.noteHold >= 0.06 && midi !== this.lastNoteMidi) {
+      if (now - this.lastNoteT > 2.5) this.lastNoteMidi = -1;
+      if (this.lastNoteMidi >= 0) {
+        const iv = midi - this.lastNoteMidi; this.melodySeq.push(iv); if (this.melodySeq.length > 64) this.melodySeq.shift();
+        if (iv >= 5) this.emit({ type: 'da', amt: 0.12 + 0.02 * Math.min(iv, 12), why: 'melodic leap up ' + iv + ' semitones' });
+        this.checkRepetition(this.melodySeq, 'melody', [5, 4]);
+      }
+      if (now - this.peakMidiT > 10) this.peakMidi = -1;
+      if (midi > this.peakMidi) { if (this.peakMidi >= 0) this.emit({ type: 'da', amt: 0.1, why: 'new melodic peak ' + this.pitch.note }); this.peakMidi = midi; this.peakMidiT = now; }
+      this.emit({ type: 'note', midi }); this.lastNoteMidi = midi; this.lastNoteT = now;
+    }
+  }
+  releasePitch(now) { this.heldMidi = -1; this.noteHold = 0; if (this.pitch.midi >= 0 && now - this.lastNoteT > 0.4) this.pitch = { f: 0, midi: -1, clarity: 0, note: '—' }; }
+}
+
+// ---------- brain model ----------
+const R = regions.length;
+const CORTEX = ['pfc', 'motor', 'parietal', 'occipital', 'temporal'].map(id => regionById[id].i);
+class Brain {
+  constructor() {
+    this.act = new Float32Array(R).fill(0.12); this.flash = new Float32Array(R); this.flashHue = new Float32Array(R).fill(-1); this.recept = new Float32Array(R);
+    this.nt = { da: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 }, ne: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 }, ht: { tonic: 0, phasic: 0, level: 0, why: '', whyT: -10 } };
+    this.pulses = []; this.conns = []; this.connByHash = new Map(); this.modeMix = 0.5; this.memory = 0; this.beatPulse = 0; this.spontT = 0; this.now = 0; this.undPhase = 0;
+    this.chordHue = -1; this.lastChordName = ''; this.dropT = -10; this.bpmChangeT = -10;
+  }
+  release(nt, amt, why, now) {
+    const o = this.nt[nt]; o.phasic = Math.min(1.2, o.phasic + amt); if (why && amt >= 0.08) { o.why = why; o.whyT = now; }
+    for (const p of paths) if (p.nt === nt && p.to) this.spawnPulse(p, clamp(amt * 1.3, 0.25, 1), now);
+  }
+  spawnPulse(p, intensity, now) {
+    if (now - p.lastSpawn < 0.11) { const last = this.pulses[this.pulses.length - 1]; if (last && last.p === p) last.i = Math.min(1, last.i + intensity * 0.5); return; }
+    p.lastSpawn = now; this.pulses.push({ p, t: 0, i: intensity, speed: 420 / p.length });
+  }
+  connect(e, now) {
+    const kinds = { melody: ['auditory', 'hippocampus', 'pfc'], chord: ['pfc', 'hippocampus', 'cingulate'], sample: ['auditory', 'auditory', 'thalamus'] };
+    const rs = (kinds[e.kind] || kinds.melody).map(id => regionById[id]);
+    let list = this.connByHash.get(e.hash);
+    if (list) { for (const c of list) { c.s = Math.min(1, c.s + 0.22); c.spark = 0; c.t = now; } return; }
+    const rng = mulberry32(fnv(e.hash)); list = [];
+    const K = e.kind === 'sample' ? 3 : 4;
+    for (let k = 0; k < K; k++) {
+      const ra = rs[k % rs.length], rb = rs[(k + 1) % rs.length];
+      const a = ra.start + Math.floor(rng() * (ra.end - ra.start)), b = rb.start + Math.floor(rng() * (rb.end - rb.start));
+      if (a === b) continue;
+      const c = { a, b, s: 0.32, spark: 0, t: now, kind: e.kind, bend: (rng() - 0.5) * 70, hash: e.hash };
+      list.push(c); this.conns.push(c);
+    }
+    this.connByHash.set(e.hash, list);
+    if (this.conns.length > 420) { this.conns.sort((x, y) => y.s - x.s); const drop = this.conns.splice(400); for (const c of drop) { const l = this.connByHash.get(c.hash); if (l) { const i = l.indexOf(c); if (i >= 0) l.splice(i, 1); if (!l.length) this.connByHash.delete(c.hash); } } }
+  }
+  update(dt, F, active, now) {
+    this.now = now;
+    const act = this.act, flash = this.flash, recept = this.recept, nt = this.nt, g = regionById;
+    const dec = Math.exp(-dt / 0.38), decR = Math.exp(-dt / 1.3);
+    for (let r = 0; r < R; r++) { flash[r] *= dec; recept[r] *= decR; }
+    nt.da.phasic *= Math.exp(-dt / 1.6); nt.ne.phasic *= Math.exp(-dt / 2.2); nt.ht.phasic *= Math.exp(-dt / 5);
+    this.beatPulse *= Math.exp(-dt / 0.25); this.memory *= Math.exp(-dt / 6);
+
+    for (const e of F.events) {
+      switch (e.type) {
+        case 'onset':
+          flash[g.motor.i] += e.strength * 0.9; flash[g.striatum.i] += e.strength * 0.5; flash[g.thalamus.i] += e.strength * 0.4; flash[g.brainstem.i] += e.strength * 0.5; this.beatPulse = Math.max(this.beatPulse, e.strength);
+          if (e.strength > 0.75) { flash[g.amygdala.i] += 0.5; this.release('ne', 0.12, 'sudden transient', now); }
+          this.spawnPulse(pathById.auditoryPath, e.strength, now); if (e.strength > 0.4) this.spawnPulse(pathById.ctc, e.strength * 0.7, now);
+          if (e.strength > 0.6) this.spawnPulse(pathById.callosum, e.strength * 0.5, now);
+          break;
+        case 'beat': flash[g.cerebellum.i] += 0.7; flash[g.motor.i] += 0.2; this.spawnPulse(pathById.striatal, 0.5, now); break;
+        case 'chord': {
+          const h = CHORD_HUE[e.q]; this.chordHue = h; this.lastChordName = e.name;
+          flash[g.pfc.i] = Math.max(flash[g.pfc.i], 1); this.flashHue[g.pfc.i] = h;
+          flash[g.cingulate.i] += 0.55; this.flashHue[g.cingulate.i] = h;
+          if (e.q === 1 && e.prevQ !== 1) { flash[g.amygdala.i] += 0.45; this.flashHue[g.amygdala.i] = h; }
+          this.spawnPulse(pathById.arcuate, 0.8, now); break;
+        }
+        case 'bpm': this.bpmChangeT = now; break;
+        case 'da': case 'ne': case 'ht': this.release(e.type, e.amt, e.why, now); break;
+        case 'drop': this.release('da', e.amt, 'drop', now); this.release('ne', e.amt * 0.6, 'drop', now); for (const r of CORTEX) flash[r] += 0.45; this.dropT = now; break;
+        case 'rep':
+          flash[g.hippocampus.i] += e.kind === 'sample' ? 0.3 : 0.7; this.memory = Math.min(1, this.memory + (e.kind === 'sample' ? 0.08 : 0.3)); this.connect(e, now);
+          if (e.kind !== 'sample') { this.release('da', 0.14, 'recognised a ' + (e.kind === 'melody' ? 'melody' : 'progression'), now); this.spawnPulse(pathById.fornix, 0.8, now); }
+          else if (e.count % 4 === 0) this.spawnPulse(pathById.fornix, 0.4, now);
+          break;
+      }
+    }
+    // neuromodulator tonic levels
+    if (active) {
+      nt.ne.tonic = 0.22 * F.loudN + 0.3 * F.onsetDensity + 0.15 * smoothstep(0, 1, (F.centroidS - 800) / 3000);
+      nt.da.tonic = 0.12 * F.loudN + 0.12 * F.bpmConf + 0.1 * this.memory;
+      nt.ht.tonic = (0.3 * F.modeMix + 0.12) * F.bpmConf * (F.loudN > 0.03 ? 1 : 0) + 0.12 * (1 - F.onsetDensity) * F.loudN;
+      this.modeMix += (F.modeMix - this.modeMix) * Math.min(1, dt / 1.5);
+    } else { nt.ne.tonic = nt.da.tonic = nt.ht.tonic = 0; this.modeMix += (0.5 - this.modeMix) * Math.min(1, dt / 3); }
+    for (const k in nt) nt[k].level = clamp(nt[k].tonic + nt[k].phasic, 0, 1);
+    const da = nt.da.level, ne = nt.ne.level, ht = nt.ht.level;
+    const tg = new Float32Array(R).fill(0.12);
+    if (active) {
+      const b = F.bands, L = F.loudN;
+      tg[g.pfc.i] = 0.22 + 0.3 * F.tension + 0.25 * da;
+      tg[g.motor.i] = 0.18 + 0.35 * L + 0.3 * Math.max(b[0], b[1]);
+      tg[g.parietal.i] = 0.14 + 0.45 * Math.max(b[3], b[4]) + 0.3 * ne;
+      tg[g.occipital.i] = 0.14 + 0.45 * Math.max(b[6], b[7]) + 0.3 * ne;
+      tg[g.temporal.i] = 0.14 + 0.5 * L;
+      tg[g.auditory.i] = 0.22 + 0.15 * L;
+      tg[g.cingulate.i] = 0.22 + 0.3 * ht + 0.25 * F.tension;
+      tg[g.striatum.i] = 0.18 + 0.45 * da + 0.35 * this.beatPulse;
+      tg[g.thalamus.i] = 0.18 + 0.6 * L;
+      tg[g.hypothalamus.i] = 0.18 + 0.6 * ne;
+      tg[g.hippocampus.i] = 0.18 + 0.55 * this.memory;
+      tg[g.amygdala.i] = 0.14 + 0.5 * (1 - this.modeMix) * L + 0.25 * ne;
+      tg[g.accumbens.i] = 0.14 + 0.8 * da;
+      tg[g.cerebellum.i] = 0.16 + 0.4 * F.bpmConf + 0.2 * L;
+      tg[g.brainstem.i] = 0.14 + 0.5 * L;
+      tg[g.vta.i] = 0.2 + 0.8 * da; tg[g.lc.i] = 0.2 + 0.8 * ne; tg[g.raphe.i] = 0.2 + 0.8 * ht;
+    } else {
+      // resting-state network: slow spontaneous activity
+      this.spontT -= dt;
+      if (this.spontT <= 0 && !REDUCED) { this.spontT = 0.9 + Math.random() * 1.6; const p = paths[Math.floor(Math.random() * paths.length)]; if (p.to) this.spawnPulse(p, 0.45, now); if (Math.random() < 0.4) flash[Math.floor(Math.random() * R)] += 0.35; }
+    }
+    const k = Math.min(1, dt / 0.16);
+    for (let r = 0; r < R; r++) act[r] += (tg[r] - act[r]) * k;
+    this.undPhase += dt * (active && F.bpm > 0 ? TAU * (F.bpm / 60) / 8 : 0.45);
+
+    // pulses
+    for (const p of paths) { const gl = p.glow, d = Math.exp(-dt / 0.22); for (let i = 0; i < gl.length; i++) gl[i] *= d; }
+    for (let i = this.pulses.length - 1; i >= 0; i--) {
+      const pu = this.pulses[i]; pu.t += dt * pu.speed; const pts = pu.p.pts, gl = pu.p.glow;
+      const head = pu.t; const lo = Math.max(0, Math.floor((head - 0.1) * pts.length)), hi = Math.min(pts.length - 1, Math.ceil(head * pts.length));
+      for (let j = lo; j <= hi; j++) { const d = head - pts[j].t; if (d >= 0 && d < 0.1) gl[j] = Math.max(gl[j], pu.i * (1 - d / 0.1)); }
+      if (pu.t >= 1) {
+        const to = pu.p.toR; if (to) { flash[to.i] += pu.i * 0.5; recept[to.i] = Math.min(1.5, recept[to.i] + pu.i); if (pu.p.nt !== 'glu') this.flashHue[to.i] = NT[pu.p.nt].hue; }
+        this.pulses.splice(i, 1);
+      }
+    }
+    // connections
+    const cd = Math.exp(-dt / 90);
+    for (let i = this.conns.length - 1; i >= 0; i--) { const c = this.conns[i]; c.s *= cd; if (c.spark >= 0) { c.spark += dt / 0.7; if (c.spark > 1) c.spark = -1; } if (c.s < 0.05) { this.conns.splice(i, 1); const l = this.connByHash.get(c.hash); if (l) { const j = l.indexOf(c); if (j >= 0) l.splice(j, 1); if (!l.length) this.connByHash.delete(c.hash); } } }
+  }
+}
+
+// ---------- renderer ----------
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d', { alpha: false });
+const view = { w: 1, h: 1, dpr: 1, base: 1, scale: 1, z: 1, cx: 505, cy: 415, tz: 1, tcx: 505, tcy: 415, animating: false };
+const WORLD = { w: 1000, h: 820 };
+view.dprCap = 2;
+function resize() {
+  view.dpr = Math.min(view.dprCap, window.devicePixelRatio || 1); view.w = canvas.clientWidth; view.h = canvas.clientHeight;
+  canvas.width = Math.round(view.w * view.dpr); canvas.height = Math.round(view.h * view.dpr);
+  view.base = Math.min(view.w / WORLD.w, view.h / WORLD.h) * 0.97; view.scale = view.base * view.z;
+}
+window.addEventListener('resize', resize); resize();
+function clampCam() { view.cx = clamp(view.cx, 60, 940); view.cy = clamp(view.cy, 60, 760); view.z = clamp(view.z, 1, 18); view.scale = view.base * view.z; }
+function toWorld(sx, sy) { return [view.cx + (sx - view.w / 2) / view.scale, view.cy + (sy - view.h / 2) / view.scale]; }
+function zoomAt(factor, sx, sy) { const [wx, wy] = toWorld(sx, sy); view.z = clamp(view.z * factor, 1, 18); view.scale = view.base * view.z; view.cx = wx - (sx - view.w / 2) / view.scale; view.cy = wy - (sy - view.h / 2) / view.scale; view.animating = false; clampCam(); }
+function flyTo(cx, cy, z) { view.tcx = cx; view.tcy = cy; view.tz = z; view.animating = true; }
+
+const colorCache = new Map();
+function hsl(h, s, l) { const hq = ((h % 360 + 360) % 360 / 3) | 0, sq = (clamp(s, 0, 100) / 5) | 0, lq = (clamp(l, 0, 100) / 2) | 0; const key = hq * 100000 + sq * 1000 + lq; let v = colorCache.get(key); if (!v) { v = `hsl(${hq * 3},${sq * 5}%,${lq * 2}%)`; colorCache.set(key, v); } return v; }
+const sprites = new Map();
+function glowSprite(h) {
+  const b = ((h % 360 + 360) % 360 / 12) | 0; let s = sprites.get(b);
+  if (!s) { s = document.createElement('canvas'); s.width = s.height = 64; const c = s.getContext('2d'); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, `hsla(${b * 12},90%,72%,1)`); g.addColorStop(0.25, `hsla(${b * 12},90%,65%,.45)`); g.addColorStop(1, `hsla(${b * 12},90%,60%,0)`); c.fillStyle = g; c.fillRect(0, 0, 64, 64); sprites.set(b, s); }
+  return s;
+}
+// low-resolution additive glow layer (glows are soft, so a third of the resolution is plenty and far cheaper)
+const glowLayer = document.createElement('canvas'); const gctx = glowLayer.getContext('2d'); const GL = 3;
+function beginGlow() {
+  const gw = Math.max(1, Math.ceil(canvas.width / GL)), gh = Math.max(1, Math.ceil(canvas.height / GL));
+  if (glowLayer.width !== gw || glowLayer.height !== gh) { glowLayer.width = gw; glowLayer.height = gh; }
+  gctx.setTransform(1, 0, 0, 1, 0, 0); gctx.globalCompositeOperation = 'source-over'; gctx.clearRect(0, 0, gw, gh); gctx.globalCompositeOperation = 'lighter';
+  const sc = view.scale * view.dpr / GL, ox = (view.w / 2 - view.cx * view.scale) * view.dpr / GL, oy = (view.h / 2 - view.cy * view.scale) * view.dpr / GL;
+  gctx.setTransform(sc, 0, 0, sc, ox, oy);
+}
+function glow(h, x, y, r, alpha) { if (alpha <= 0.01) return; gctx.globalAlpha = Math.min(1, alpha); gctx.drawImage(glowSprite(h), x - r, y - r, r * 2, r * 2); }
+const blurLayer = document.createElement('canvas'); const bctx = blurLayer.getContext('2d'); const HAS_FILTER = 'filter' in bctx;
+function endGlow() {
+  let src = glowLayer;
+  if (HAS_FILTER) {
+    const gw = glowLayer.width, gh = glowLayer.height; if (blurLayer.width !== gw || blurLayer.height !== gh) { blurLayer.width = gw; blurLayer.height = gh; }
+    bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.globalCompositeOperation = 'copy'; bctx.globalAlpha = 1; bctx.filter = 'blur(' + (2.6 * Math.pow(view.z, -0.25)).toFixed(2) + 'px)'; bctx.drawImage(glowLayer, 0, 0); bctx.filter = 'none'; src = blurLayer;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+}
+let bgGrad = null, bgKey = '';
+function drawBackground() {
+  const key = view.w + 'x' + view.h;
+  if (key !== bgKey) { bgKey = key; bgGrad = ctx.createRadialGradient(view.w * 0.5, view.h * 0.45, 10, view.w * 0.5, view.h * 0.45, Math.max(view.w, view.h) * 0.7); bgGrad.addColorStop(0, '#0a1020'); bgGrad.addColorStop(1, '#04060b'); }
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, view.w, view.h);
+}
+const skullPoly = catmull(SKULL.outline, true, 10), mandiblePoly = catmull(SKULL.mandible, false, 8), zygPoly = catmull(SKULL.zygomatic, false, 8);
+function tracePoly(poly, close) { ctx.beginPath(); ctx.moveTo(poly[0][0], poly[0][1]); for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]); if (close) ctx.closePath(); }
+function drawSkull(front) {
+  const px = 1 / view.scale;
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  if (!front) { tracePoly(skullPoly, true); ctx.fillStyle = 'rgba(120,170,255,0.045)'; ctx.fill(); return; }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  tracePoly(skullPoly, true); ctx.lineWidth = 1.6 * Math.max(1, px * 1.2); ctx.strokeStyle = 'rgba(156,192,255,0.30)'; ctx.stroke();
+  ctx.lineWidth = 5 * Math.max(1, px); ctx.strokeStyle = 'rgba(156,192,255,0.05)'; ctx.stroke();
+  ctx.lineWidth = 1.1 * Math.max(1, px * 1.2); ctx.strokeStyle = 'rgba(156,192,255,0.22)';
+  const o = SKULL.orbit; ctx.beginPath(); ctx.ellipse(o[0], o[1], o[2], o[3], o[4], 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(112, 452); ctx.quadraticCurveTo(132, 440, 138, 470); ctx.quadraticCurveTo(126, 492, 110, 482); ctx.stroke();
+  tracePoly(zygPoly, false); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(118, 492); ctx.quadraticCurveTo(128, 548, 158, 586); ctx.stroke();
+  tracePoly(mandiblePoly, false); ctx.stroke();
+  for (const s of SKULL.sutures) { ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]); ctx.quadraticCurveTo(s[1][0], s[1][1], s[2][0], s[2][1]); ctx.stroke(); }
+  const t = SKULL.teeth, tw = (t.x1 - t.x0) / t.n;
+  ctx.strokeStyle = 'rgba(156,192,255,0.2)';
+  for (let i = 0; i < t.n; i++) { const x = t.x0 + i * tw + 1.5; ctx.beginPath(); ctx.roundRect(x, t.y - 11, tw - 3, 11, 2); ctx.stroke(); ctx.beginPath(); ctx.roundRect(x + 2, t.y + 2, tw - 3, 10, 2); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+function drawPathways(now) {
+  ctx.globalCompositeOperation = 'lighter'; const gz = Math.pow(view.z, -0.5), zf = Math.pow(view.z, -0.35);
+  for (const p of paths) {
+    const h = p.hue, pts = p.pts, gl = p.glow;
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i], g = gl[i], a = 0.22 + 0.78 * Math.min(1, g);
+      ctx.globalAlpha = a; ctx.fillStyle = hsl(h, 60 + 30 * g, 42 + 36 * g); ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 + 0.5 * g) * zf, 0, TAU); ctx.fill();
+      if (g > 0.15) glow(h, q.x, q.y, (6 + 9 * g) * gz, g * 0.75);
+    }
+  }
+  for (const pu of brain.pulses) {
+    const pts = pu.p.pts; const idx = clamp(Math.round(pu.t * (pts.length - 1)), 0, pts.length - 1); const q = pts[idx]; const gr = 9 + 11 * pu.i;
+    glow(pu.p.hue, q.x, q.y, gr * gz, 0.9 * pu.i);
+    ctx.globalAlpha = 1; ctx.fillStyle = hsl(pu.p.hue, 60, 92); ctx.beginPath(); ctx.arc(q.x, q.y, (1.8 + pu.i) * zf, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+const CONN_HUE = { melody: 172, chord: 48, sample: 305 };
+function drawConnections(now) {
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; const zf = Math.pow(view.z, -0.35);
+  for (const c of brain.conns) {
+    const ax = D.x[c.a], ay = D.y[c.a], bx = D.x[c.b], by = D.y[c.b]; const mx = (ax + bx) / 2, my = (ay + by) / 2; const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1; const cxp = mx - dy / L * c.bend, cyp = my + dx / L * c.bend;
+    const h = CONN_HUE[c.kind] || 200;
+    ctx.globalAlpha = 0.12 + 0.5 * c.s; ctx.strokeStyle = hsl(h, 70, 60 + 15 * c.s); ctx.lineWidth = (0.7 + 1.3 * c.s) * zf;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp, bx, by); ctx.stroke();
+    if (c.spark >= 0) { const t = c.spark, u = 1 - t; const sx = u * u * ax + 2 * u * t * cxp + t * t * bx, sy = u * u * ay + 2 * u * t * cyp + t * t * by; glow(h, sx, sy, 10 * Math.pow(view.z, -0.5), 0.9); ctx.globalAlpha = 0.9; ctx.fillStyle = hsl(h, 60, 95); ctx.beginPath(); ctx.arc(sx, sy, 1.8 * Math.pow(view.z, -0.35), 0, TAU); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+}
+const keyBuf = new Int32Array(ND); const styleCache = new Map();
+function dotStyle(k) { let s = styleCache.get(k); if (!s) { const lq = k % 51, rest = (k - lq) / 51, sq = rest % 21, hq = (rest - sq) / 21; s = `hsl(${hq * 3},${sq * 5}%,${lq * 2}%)`; styleCache.set(k, s); } return s; }
+function drawDots(now, F, active) {
+  const modeHue = 262 + 136 * brain.modeMix, spec = F.spec, und = brain.undPhase;
+  const zf = Math.pow(view.z, -0.35), gz = Math.pow(view.z, -0.5);
+  // pass 1: activation and colour key per dot
+  for (const r of regions) {
+    const a0 = brain.act[r.i], fl = brain.flash[r.i], fh = brain.flashHue[r.i];
+    const baseHue = r.limbic ? lerpHue(modeHue + r.hueOff, r.hue, 0.25) : r.hue;
+    const isAud = r.id === 'auditory', undA = (r.limbic || r.id === 'accumbens') ? 0.2 : 0.06, undW = r.limbic ? 1 : 2.2;
+    const flHue = fl > 0.04 && fh >= 0 ? lerpHue(baseHue, fh, clamp(fl, 0, 1) * 0.85) : baseHue;
+    const hq = ((flHue % 360 + 360) % 360 / 3) | 0;
+    for (let i = r.start; i < r.end; i++) {
+      let a = a0;
+      if (isAud) a += spec[(D.u[i] * 63) | 0] * 0.95;
+      a += undA * Math.sin(und * undW + D.phase[i] + D.u[i] * 2.5) * (0.4 + 0.6 * a0);
+      a += fl * (0.65 + 0.35 * Math.sin(D.phase[i] * 3 + now * 9));
+      if (a < 0) a = 0; if (a > 1.1) a = 1.1; D.a[i] = a; D.hue[i] = flHue;
+      const tone = D.tone[i];
+      const sq = clamp((r.sat + 8 * a - 10 * Math.max(0, tone)) / 5, 0, 20) | 0, lq = clamp((r.light - 24 + tone * 13 + a * 30) / 2, 0, 44) | 0;
+      keyBuf[i] = (hq * 21 + sq) * 51 + lq;
+    }
+  }
+  // pass 2: one fill per colour on the main canvas, and one bloom fill per colour on the low-res layer
+  const buckets = new Map();
+  for (let i = 0; i < ND; i++) { const k = keyBuf[i]; let arr = buckets.get(k); if (!arr) { arr = []; buckets.set(k, arr); } arr.push(i); }
+  ctx.globalCompositeOperation = 'lighter';
+  const ga = Math.min(1, 1.3 * gz);
+  for (const [k, arr] of buckets) {
+    const style = dotStyle(k), i0 = arr[0], a0 = D.a[i0];
+    ctx.fillStyle = style; ctx.beginPath();
+    for (let j = 0; j < arr.length; j++) { const i = arr[j], rr = D.size[i] * (1 + 0.25 * D.a[i]) * zf, x = D.x[i], y = D.y[i]; ctx.moveTo(x + rr, y); ctx.arc(x, y, rr, 0, TAU); }
+    ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, a0); ctx.fill();
+    if (a0 > 0.36) {
+      if (HAS_FILTER) {
+        gctx.fillStyle = style; gctx.globalAlpha = (a0 - 0.36) * 0.9 * ga; gctx.beginPath();
+        for (let j = 0; j < arr.length; j++) { const i = arr[j], rr = D.size[i] * (1.5 + 2.4 * D.a[i]) * gz, x = D.x[i], y = D.y[i]; gctx.moveTo(x + rr, y); gctx.arc(x, y, rr, 0, TAU); }
+        gctx.fill();
+      } else for (let j = 0; j < arr.length; j++) { const i = arr[j]; glow(D.hue[i], D.x[i], D.y[i], D.size[i] * (2.6 + 4 * D.a[i]) * gz, (a0 - 0.36) * 0.75 * ga); }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawLabels() {
+  const z = view.z; if (z < 1.25) return;
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.textBaseline = 'middle';
+  ctx.font = 'italic 500 15px "Cormorant Garamond", Georgia, serif';
+  const sc = view.scale, ox = view.w / 2 - view.cx * sc, oy = view.h / 2 - view.cy * sc;
+  for (const r of regions) {
+    if (r.small && z < 2.4) continue;
+    const sx = r.cx * sc + ox, sy = r.cy * sc + oy;
+    if (sx < -120 || sx > view.w + 120 || sy < -30 || sy > view.h + 30) continue;
+    const al = clamp((z - 1.2) / 0.8, 0, 1) * 0.62;
+    let lx = sx, ly = sy;
+    if (r.label) { lx += r.label[0] * 2.2; ly += r.label[1]; ctx.strokeStyle = `rgba(215,228,255,${al * 0.5})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx + 8, sy); ctx.lineTo(lx - 2, ly); ctx.stroke(); ctx.textAlign = 'left'; lx += 2; }
+    else ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(215,228,255,${al})`; ctx.fillText(r.name, lx, ly);
+  }
+}
+// ---- receptor-level detail when zoomed in ----
+const details = new Map();
+function getDetail(i, now) {
+  let d = details.get(i);
+  if (!d) {
+    const rng = mulberry32(D.seed[i]); const nd = 3 + Math.floor(rng() * 3); const dend = [];
+    for (let k = 0; k < nd; k++) dend.push({ a: rng() * TAU, l: 4 + rng() * 5, c: (rng() - 0.5) * 1.4 });
+    const nr = 4 + Math.floor(rng() * 3);
+    d = { dend, ax: rng() * TAU, nr, rec: new Float32Array(nr), parts: [], seen: now, acc: rng(), rng };
+    details.set(i, d);
+  }
+  d.seen = now; return d;
+}
+function recGlyph(nt, x, y, s, ang) {
+  ctx.beginPath();
+  if (nt === 'da') { ctx.arc(x, y, s, ang + 0.6, ang + TAU - 0.6); }
+  else if (nt === 'ne') { ctx.moveTo(x + Math.cos(ang) * s * 1.3, y + Math.sin(ang) * s * 1.3); ctx.lineTo(x + Math.cos(ang + 2.3) * s, y + Math.sin(ang + 2.3) * s); ctx.lineTo(x + Math.cos(ang - 2.3) * s, y + Math.sin(ang - 2.3) * s); ctx.closePath(); }
+  else if (nt === 'ht') { for (let k = 0; k < 6; k++) { const a = ang + k / 6 * TAU, px = x + Math.cos(a) * s, py = y + Math.sin(a) * s; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.closePath(); }
+  else { const c = Math.cos(ang), sn = Math.sin(ang); ctx.moveTo(x - sn * s, y + c * s); ctx.lineTo(x + sn * s, y - c * s); }
+}
+function drawDetails(now, dt) {
+  const z = view.z, fade = smoothstep(2.6, 4.0, z); if (fade <= 0) return; const zf = Math.pow(z, -0.35) * 1.35;
+  const [x0, y0] = toWorld(0, 0), [x1, y1] = toWorld(view.w, view.h); const mcx = (x0 + x1) / 2, mcy = (y0 + y1) / 2; const maxD = Math.hypot(x1 - x0, y1 - y0) / 2;
+  const vis = [];
+  for (let i = 0; i < ND; i++) { const x = D.x[i], y = D.y[i]; if (x < x0 - 12 || x > x1 + 12 || y < y0 - 12 || y > y1 + 12) continue; vis.push(i); }
+  if (vis.length > 240) { vis.sort((a, b) => ((D.x[a] - mcx) ** 2 + (D.y[a] - mcy) ** 2) - ((D.x[b] - mcx) ** 2 + (D.y[b] - mcy) ** 2)); vis.length = 240; }
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const i of vis) {
+    const r = regions[D.reg[i]], nt = r.nt, ntc = NT[nt], d = getDetail(i, now);
+    const x = D.x[i], y = D.y[i], Rr = D.size[i] * 1.5 * zf, a = D.a[i], hue = D.hue[i];
+    const focus = 1 - smoothstep(0.55, 1, Math.hypot(x - mcx, y - mcy) / maxD); const al = fade * focus; if (al <= 0.02) continue;
+    // dendrites
+    ctx.strokeStyle = hsl(hue, 50, 62); ctx.lineWidth = 0.4; ctx.globalAlpha = al * (0.3 + 0.3 * a);
+    for (const dn of d.dend) { const dl = dn.l * zf; const ex = x + Math.cos(dn.a) * (Rr + dl), ey = y + Math.sin(dn.a) * (Rr + dl); const cxp = x + Math.cos(dn.a + dn.c) * (Rr + dl * 0.55), cyp = y + Math.sin(dn.a + dn.c) * (Rr + dl * 0.55); ctx.beginPath(); ctx.moveTo(x + Math.cos(dn.a) * Rr * 0.9, y + Math.sin(dn.a) * Rr * 0.9); ctx.quadraticCurveTo(cxp, cyp, ex, ey); ctx.stroke(); }
+    // presynaptic bouton + axon
+    const bx = x + Math.cos(d.ax) * Rr * 3.4, by = y + Math.sin(d.ax) * Rr * 3.4, br = Rr * 0.85;
+    ctx.strokeStyle = hsl(ntc.hue, 60, 60); ctx.lineWidth = 0.5; ctx.globalAlpha = al * 0.35;
+    ctx.beginPath(); ctx.moveTo(bx + Math.cos(d.ax) * br, by + Math.sin(d.ax) * br); ctx.lineTo(bx + Math.cos(d.ax) * (br + Rr * 2.4), by + Math.sin(d.ax) * (br + Rr * 2.4)); ctx.stroke();
+    ctx.fillStyle = hsl(ntc.hue, 70, 55); ctx.globalAlpha = al * 0.28; ctx.beginPath(); ctx.arc(bx, by, br, 0, TAU); ctx.fill();
+    ctx.globalAlpha = al * 0.9; ctx.fillStyle = hsl(ntc.hue, 85, 72);
+    for (let k = 0; k < 3; k++) { const a2 = d.ax + Math.PI + (k - 1) * 0.9, rr = br * 0.45; ctx.beginPath(); ctx.arc(bx + Math.cos(a2) * rr, by + Math.sin(a2) * rr, br * 0.16, 0, TAU); ctx.fill(); }
+    // postsynaptic membrane with receptors
+    const mr = Rr * 1.25, spread = 1.25;
+    ctx.strokeStyle = hsl(hue, 50, 70); ctx.lineWidth = 0.35; ctx.globalAlpha = al * 0.45; ctx.beginPath(); ctx.arc(x, y, mr, d.ax - spread * 0.62, d.ax + spread * 0.62); ctx.stroke();
+    const recAct = brain.recept[r.i] + (nt === 'glu' ? Math.max(0, a - 0.3) * 1.5 : 0);
+    const recPos = [];
+    for (let k = 0; k < d.nr; k++) {
+      const ang = d.ax + (d.nr > 1 ? (k / (d.nr - 1) - 0.5) * spread : 0); const rx = x + Math.cos(ang) * mr, ry = y + Math.sin(ang) * mr; recPos.push([rx, ry]);
+      const g = d.rec[k]; d.rec[k] *= Math.exp(-dt / 0.45);
+      const gs = Rr * 0.26 * (1 + 0.6 * g);
+      ctx.lineWidth = 0.45 + 0.35 * g; ctx.strokeStyle = hsl(ntc.hue, 80, 60 + 30 * g); ctx.globalAlpha = al * (0.45 + 0.55 * g); recGlyph(nt, rx, ry, gs, ang); ctx.stroke();
+      if (g > 0.05) glow(ntc.hue, rx, ry, Rr * (0.9 + 1.4 * g), al * g * 0.9);
+    }
+    // molecules crossing the cleft
+    if (!REDUCED || recAct > 0.6) { d.acc += dt * (0.25 + 4.5 * recAct); while (d.acc > 1) { d.acc -= 1; if (d.parts.length < 6) d.parts.push({ k: Math.floor(Math.random() * d.nr), t: 0, st: 0, dock: 0, sp: 2.2 + Math.random() * 1.2, wob: Math.random() * TAU }); } }
+    for (let j = d.parts.length - 1; j >= 0; j--) {
+      const pt = d.parts[j], [rx, ry] = recPos[pt.k];
+      if (pt.st === 0) { pt.t += dt * pt.sp; if (pt.t >= 1) { pt.t = 1; pt.st = 1; pt.dock = 0; d.rec[pt.k] = 1; } }
+      else if (pt.st === 1) { pt.dock += dt; if (pt.dock > 0.3) { if (nt === 'glu') { d.parts.splice(j, 1); continue; } pt.st = 2; } }
+      else { pt.t -= dt * pt.sp * 0.8; if (pt.t <= 0) { d.parts.splice(j, 1); continue; } }
+      const e = pt.t * pt.t * (3 - 2 * pt.t); const wob = Math.sin(now * 14 + pt.wob) * Rr * 0.18 * (1 - e);
+      const px = lerp(bx, rx, e) + Math.cos(d.ax + Math.PI / 2) * wob, py = lerp(by, ry, e) + Math.sin(d.ax + Math.PI / 2) * wob;
+      ctx.globalAlpha = al * (pt.st === 2 ? 0.55 : 0.95); ctx.fillStyle = hsl(ntc.hue, 90, 80); ctx.beginPath(); ctx.arc(px, py, Rr * 0.15, 0, TAU); ctx.fill();
+    }
+  }
+  if (details.size > 1200) for (const [k, d] of details) if (now - d.seen > 3) details.delete(k);
+  ctx.globalAlpha = 1;
+}
+function render(now, dt, F, active) {
+  const { w, h, dpr } = view;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  drawBackground();
+  const sc = view.scale, ox = w / 2 - view.cx * sc, oy = h / 2 - view.cy * sc;
+  ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+  beginGlow();
+  drawSkull(false);
+  drawPathways(now);
+  drawConnections(now);
+  drawDots(now, F, active);
+  drawDetails(now, dt);
+  endGlow();
+  ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+  drawSkull(true);
+  drawLabels();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ---------- audio engine ----------
+const audio = { ac: null, an: null, monitor: null, F: null, source: 'none', node: null, stream: null, el: null, elNode: null, demo: null, fileName: '' };
+function ensureContext() {
+  if (audio.ac) { if (audio.ac.state === 'suspended') audio.ac.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC();
+  const an = ac.createAnalyser(); an.fftSize = 4096; an.smoothingTimeConstant = 0; an.minDecibels = -110; an.maxDecibels = -10;
+  const monitor = ac.createGain(); monitor.gain.value = 1; an.connect(monitor); monitor.connect(ac.destination);
+  audio.ac = ac; audio.an = an; audio.monitor = monitor; audio.F = new Features(ac, an);
+}
+function stopSource() {
+  if (audio.node) { try { audio.node.disconnect(); } catch (e) { } }
+  if (audio.stream) { audio.stream.getTracks().forEach(t => t.stop()); audio.stream = null; }
+  if (audio.el) { audio.el.pause(); }
+  if (audio.demo) { audio.demo.stop(); audio.demo = null; }
+  audio.node = null; audio.source = 'none';
+  if (audio.F) { audio.F.bpm = 0; audio.F.bpmConf = 0; audio.F.anchor = -1; audio.F.onsets.length = 0; audio.F.startT = -1; }
+  ui.setSource('none');
+}
+async function startMic() {
+  ensureContext(); stopSource();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('This browser does not expose a microphone here. Upload a track or run the demo loop.'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+    audio.stream = stream; audio.node = audio.ac.createMediaStreamSource(stream); audio.node.connect(audio.an); audio.monitor.gain.value = 0; audio.source = 'mic';
+    ui.setSource('mic'); toast('Listening. Play music near the microphone.');
+  } catch (err) {
+    const name = err && err.name || '';
+    toast(name === 'NotAllowedError' || name === 'SecurityError' ? 'Microphone access was refused in this view. Upload a track or run the demo loop instead.' : 'Could not open the microphone (' + (name || 'unknown error') + '). Upload a track or run the demo loop instead.');
+  }
+}
+function startFile(file) {
+  ensureContext(); stopSource();
+  if (!audio.el) { audio.el = new Audio(); audio.el.preload = 'auto'; audio.elNode = audio.ac.createMediaElementSource(audio.el); audio.el.addEventListener('ended', () => ui.setPlaying(false)); audio.el.addEventListener('timeupdate', ui.updateTime); audio.el.addEventListener('loadedmetadata', ui.updateTime); }
+  if (audio.el.src && audio.el.src.startsWith('blob:')) URL.revokeObjectURL(audio.el.src);
+  audio.el.src = URL.createObjectURL(file); audio.fileName = file.name;
+  audio.node = audio.elNode; audio.node.connect(audio.an); audio.monitor.gain.value = 1; audio.source = 'file';
+  audio.el.play().then(() => ui.setPlaying(true)).catch(() => { ui.setPlaying(false); toast('Press play to start the track.'); });
+  ui.setSource('file');
+}
+function startDemo() {
+  ensureContext(); stopSource();
+  audio.demo = new Demo(audio.ac, audio.an); audio.node = audio.demo.out; audio.monitor.gain.value = 1; audio.source = 'demo'; audio.demo.start(); ui.setSource('demo');
+}
+function isActive() { if (audio.source === 'none') return false; if (audio.source === 'file') return !!audio.el && !audio.el.paused; return true; }
+
+// ---------- demo loop (synthesised) ----------
+class Demo {
+  constructor(ac, dest) {
+    this.ac = ac; this.out = ac.createGain(); this.out.gain.value = 0.55; this.out.connect(dest);
+    this.noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = this.noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    this.step = 0; this.bar = 0; this.next = 0; this.timer = null; this.pad = null;
+  }
+  bpmForBar(bar) { const c = bar % 64; return c < 24 ? 112 : c < 48 ? 126 : 112; }
+  chordFor(bar) { const sec = Math.floor((bar % 64) / 16); const prog = sec % 2 === 0 ? [[0, 0], [7, 0], [9, 1], [5, 0]] : [[9, 1], [5, 0], [0, 0], [4, 0]]; return prog[bar % 4]; }
+  start() { this.next = this.ac.currentTime + 0.08; this.timer = setInterval(() => this.schedule(), 30); }
+  stop() { clearInterval(this.timer); const t = this.ac.currentTime; this.out.gain.setTargetAtTime(0, t, 0.05); if (this.pad) this.pad.g.gain.setTargetAtTime(0, t, 0.05); setTimeout(() => { try { this.out.disconnect(); } catch (e) { } }, 400); }
+  schedule() { while (this.next < this.ac.currentTime + 0.16) { this.playStep(this.next, this.step); this.next += 60 / this.bpmForBar(this.bar) / 2; this.step++; if (this.step % 8 === 0) this.bar++; } }
+  hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  osc(type, f, t0, t1, g0, dest, det) { const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0); if (det) o.detune.value = det; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(g0, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0008, t1); o.connect(g); g.connect(dest || this.out); o.start(t0); o.stop(t1 + 0.02); return { o, g }; }
+  kick(t) { const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.13); g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.32); }
+  noiseHit(t, dur, hp, bp, gain) { const ac = this.ac, s = ac.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = ac.createBiquadFilter(); f.type = bp ? 'bandpass' : 'highpass'; f.frequency.value = hp; f.Q.value = bp ? 1.2 : 0.7; const g = ac.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); s.connect(f); f.connect(g); g.connect(this.out); s.start(t); s.stop(t + dur + 0.02); }
+  playStep(t, step) {
+    const s8 = step % 8, bar = this.bar, [root, q] = this.chordFor(bar), spb = 60 / this.bpmForBar(bar); const b16 = bar % 16; const breakdown = b16 >= 13; const minorSec = Math.floor((bar % 64) / 16) % 2 === 1;
+    if (!breakdown) {
+      if (s8 % 2 === 0) this.kick(t);
+      if (s8 === 2 || s8 === 6) { this.noiseHit(t, 0.18, 1800, true, 0.5); this.osc('triangle', 190, t, t + 0.12, 0.4); }
+      this.noiseHit(t, s8 % 2 ? 0.14 : 0.05, 7000, false, s8 % 2 ? 0.16 : 0.1);
+      if (s8 === 0 || s8 === 3 || s8 === 6) { const ac = this.ac, f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320; f.connect(this.out); this.osc('sawtooth', this.hz(36 + root), t, t + spb * 0.45, 0.6, f); }
+    } else if (s8 % 4 === 0) this.noiseHit(t, 0.4, 4000, false, 0.06);
+    if (s8 === 0) {
+      if (this.pad) { this.pad.g.gain.setTargetAtTime(0, t, 0.08); const old = this.pad; setTimeout(() => old.oscs.forEach(o => { try { o.stop(); } catch (e) { } }), 600); }
+      const ac = this.ac, g = ac.createGain(), f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = breakdown ? 700 : 1300; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 0.25); f.connect(g); g.connect(this.out);
+      const tones = [60 + root, 60 + root + (q ? 3 : 4), 67 + root, 72 + root]; const oscs = [];
+      tones.forEach((m, i) => { for (const det of [-7, 7]) { const o = ac.createOscillator(); o.type = i === 3 ? 'sine' : 'triangle'; o.frequency.value = this.hz(m); o.detune.value = det; o.connect(f); o.start(t); oscs.push(o); } });
+      this.pad = { g, oscs };
+    }
+    const motif = minorSec ? [0, 3, 7, 10, 7, 3, 0, -2] : [0, 4, 7, 12, 7, 4, 0, -5];
+    if (b16 % 4 !== 3 || s8 < 4) { const m = 72 + root + motif[s8]; const ac = this.ac, f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2600; f.connect(this.out); this.osc('square', this.hz(m), t, t + spb * 0.42, 0.14, f); }
+  }
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const brain = new Brain();
+let toastTimer = 0;
+function toast(msg, ms = 4200) { const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, ms); }
+const ui = {
+  setSource(s) {
+    $('btnMic').classList.toggle('on', s === 'mic'); $('lblFile').classList.toggle('on', s === 'file'); $('btnDemo').classList.toggle('on', s === 'demo');
+    $('btnStop').hidden = s === 'none'; $('transport').hidden = s !== 'file';
+    const st = $('status');
+    st.innerHTML = s === 'mic' ? 'Listening to the <b>microphone</b>.' : s === 'file' ? 'Playing <b></b>' : s === 'demo' ? 'Playing the <b>demo loop</b>: four chords, a repeating motif, a tempo shift and a drop.' : 'Resting state. Pick a sound source to begin.';
+    if (s === 'file') { st.querySelector('b').textContent = audio.fileName; $('trackName').textContent = audio.fileName; }
+  },
+  setPlaying(p) { $('btnPlay').textContent = p ? '❚❚' : '▶'; $('btnPlay').setAttribute('aria-label', p ? 'Pause' : 'Play'); },
+  updateTime() { const el = audio.el; if (!el) return; const d = el.duration || 0, c = el.currentTime || 0; if (!ui.seeking) $('seek').value = d ? Math.round(c / d * 1000) : 0; $('time').textContent = fmt(c) + ' / ' + fmt(d); },
+  seeking: false,
+};
+function fmt(s) { if (!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+$('btnMic').addEventListener('click', startMic);
+$('btnDemo').addEventListener('click', startDemo);
+$('btnStop').addEventListener('click', stopSource);
+$('fileIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) startFile(f); e.target.value = ''; });
+$('btnPlay').addEventListener('click', () => { if (!audio.el) return; if (audio.el.paused) { ensureContext(); audio.el.play().then(() => ui.setPlaying(true)); } else { audio.el.pause(); ui.setPlaying(false); } });
+$('seek').addEventListener('input', () => { ui.seeking = true; if (audio.el && audio.el.duration) $('time').textContent = fmt($('seek').value / 1000 * audio.el.duration) + ' / ' + fmt(audio.el.duration); });
+$('seek').addEventListener('change', () => { ui.seeking = false; if (audio.el && audio.el.duration) audio.el.currentTime = $('seek').value / 1000 * audio.el.duration; });
+$('zIn').addEventListener('click', () => zoomAt(1.6, view.w / 2, view.h / 2));
+$('zOut').addEventListener('click', () => zoomAt(1 / 1.6, view.w / 2, view.h / 2));
+$('zReset').addEventListener('click', () => flyTo(505, 415, 1));
+$('readoutToggle').addEventListener('click', () => { const r = $('readout'); r.classList.toggle('collapsed'); $('readoutToggle').setAttribute('aria-expanded', String(!r.classList.contains('collapsed'))); });
+if (window.innerWidth < 760) { $('readout').classList.add('collapsed'); $('readoutToggle').setAttribute('aria-expanded', 'false'); }
+// drag & drop a track anywhere
+window.addEventListener('dragover', e => { e.preventDefault(); });
+window.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f && f.type.startsWith('audio')) startFile(f); });
+// legend
+{
+  const ul = $('legend'); const order = ['auditory', 'motor', 'cerebellum', 'striatum', 'pfc', 'cingulate', 'hippocampus', 'amygdala', 'accumbens', 'hypothalamus', 'thalamus', 'vta', 'lc', 'raphe', 'parietal', 'occipital', 'temporal', 'brainstem'];
+  for (const id of order) { const r = regionById[id]; const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:hsl(${r.hue},${r.sat}%,${r.light}%);color:hsl(${r.hue},${r.sat}%,${r.light}%)"></span><span>${r.name}${r.limbic ? '<span class="lim">limbic</span>' : ''}</span>`; b.title = r.desc; b.addEventListener('click', () => flyTo(r.cx, r.cy, r.small ? 7 : 3.4)); li.appendChild(b); ul.appendChild(li); }
+}
+// pointer interaction
+const ptrs = new Map(); let dragging = false, pinch0 = 0, lastTap = 0, moved = 0;
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } dragging = true; canvas.classList.add('dragging'); });
+canvas.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) { hover(e.clientX, e.clientY); return; }
+  const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy);
+  if (ptrs.size === 1) { view.cx -= dx / view.scale; view.cy -= dy / view.scale; view.animating = false; clampCam(); }
+  p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 0) zoomAt(d / pinch0, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch0 = d; }
+  hideTip();
+});
+function endPtr(e) {
+  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 6) { const now = performance.now(); if (now - lastTap < 320) { dblTap(e.clientX, e.clientY); lastTap = 0; } else lastTap = now; }
+  ptrs.delete(e.pointerId); if (!ptrs.size) { dragging = false; canvas.classList.remove('dragging'); } pinch0 = 0;
+}
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0016)), e.clientX, e.clientY); }, { passive: false });
+canvas.addEventListener('dblclick', e => dblTap(e.clientX, e.clientY));
+canvas.addEventListener('pointerleave', hideTip);
+function regionAt(wx, wy) { for (const r of inner) if (wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; for (const r of regions) if (r.layer === 1 && wx >= r.bb.x && wx <= r.bb.x + r.bb.w && wy >= r.bb.y && wy <= r.bb.y + r.bb.h && pointInPoly(r.poly, wx, wy)) return r; return null; }
+function dblTap(sx, sy) { const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy); if (r) flyTo(r.cx, r.cy, view.z < 2.5 ? (r.small ? 7 : 3.4) : Math.min(18, view.z * 2.2)); else if (view.z > 1.05) flyTo(505, 415, 1); }
+const tip = $('tip'); let tipRegion = null;
+function hover(sx, sy) {
+  const [wx, wy] = toWorld(sx, sy); const r = regionAt(wx, wy);
+  if (!r) { hideTip(); return; }
+  let extra = '';
+  if (view.z >= 2.6) { const ntc = NT[r.nt]; const lvl = Math.round(clamp(brain.recept[r.i] + (r.nt === 'glu' ? brain.act[r.i] : brain.nt[r.nt].level), 0, 1) * 100); extra = `<div class="rc"><i style="background:${ntc.css}"></i>${ntc.receptor} · ${lvl}% active</div>`; }
+  if (tipRegion !== r || extra) { tip.innerHTML = `<h3>${r.name}</h3><p>${r.desc}</p>${extra}`; tipRegion = r; }
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight; let x = sx, y = sy; if (x + tw + 20 > view.w) x = sx - tw - 28; if (y + th + 20 > view.h) y = sy - th - 28;
+  tip.style.transform = `translate(${x + 14}px,${y + 14}px)`;
+}
+function hideTip() { tip.hidden = true; tipRegion = null; }
+window.addEventListener('keydown', e => { if (e.target && /INPUT|BUTTON|LABEL/.test(e.target.tagName) && e.key !== 'Escape') return; if (e.key === '+' || e.key === '=') zoomAt(1.4, view.w / 2, view.h / 2); else if (e.key === '-') zoomAt(1 / 1.4, view.w / 2, view.h / 2); else if (e.key === '0' || e.key === 'Escape') flyTo(505, 415, 1); else if (e.key === ' ' && audio.el && audio.source === 'file') { e.preventDefault(); $('btnPlay').click(); } });
+
+// readouts
+let lastUI = 0;
+function updateReadout(now, F, active) {
+  if (now - lastUI < 0.1) return; lastUI = now;
+  const nt = brain.nt;
+  $('fTempo').innerHTML = active && F.bpm > 0 && F.bpmConf > 0.12 ? Math.round(F.bpm) + ' bpm' + (now - F.bpmChangedAt < 3 ? '<span class="flag">changed</span>' : '') : '—';
+  $('fKey').textContent = active && F.key.root >= 0 ? F.key.name : '—';
+  $('fChord').textContent = active && F.chord.root >= 0 && F.chordEnergy > 0.3 ? F.chord.name : '—';
+  $('fPitch').textContent = active && F.pitch.midi >= 0 ? F.pitch.note + ' · ' + Math.round(F.pitch.f) + ' Hz' : '—';
+  $('fLevel').style.width = (active ? Math.round(F.loudN * 100) : 0) + '%';
+  $('mDa').style.width = Math.round(nt.da.level * 100) + '%'; $('mNe').style.width = Math.round(nt.ne.level * 100) + '%'; $('mHt').style.width = Math.round(nt.ht.level * 100) + '%';
+  $('mDaWhy').textContent = now - nt.da.whyT < 3 ? nt.da.why : ''; $('mNeWhy').textContent = now - nt.ne.whyT < 3 ? nt.ne.why : ''; $('mHtWhy').textContent = now - nt.ht.whyT < 3 ? nt.ht.why : '';
+  $('fRepMel').textContent = F.repCounts.melody; $('fRepChord').textContent = F.repCounts.chord; $('fRepSample').textContent = F.repCounts.sample; $('fConn').textContent = brain.conns.length;
+}
+
+// ---------- main loop ----------
+const idleF = { spec: new Float32Array(64), bands: new Float32Array(8), loudN: 0, bpm: 0, bpmConf: 0, modeMix: 0.5, tension: 0, onsetDensity: 0, centroidS: 0, events: [], key: { root: -1 }, chord: { root: -1 }, pitch: { midi: -1 }, repCounts: { melody: 0, chord: 0, sample: 0 }, chordEnergy: 0, bpmChangedAt: -10 };
+let last = performance.now() / 1000, frameEMA = 0.016, perfT = 0;
+function frame(ms) {
+  const now = ms / 1000; let dt = now - last; last = now; if (dt > 0.06) dt = 0.06; if (dt <= 0) dt = 0.001;
+  // adaptive resolution: if frames stay slow on a high-density screen, drop to 1x pixels
+  frameEMA += (dt - frameEMA) * 0.04;
+  if (frameEMA > 1 / 32 && view.dprCap > 1 && now - perfT > 4 && now > 3) { view.dprCap = 1; perfT = now; resize(); }
+  if (view.animating) { const k = Math.min(1, dt * 5); view.cx += (view.tcx - view.cx) * k; view.cy += (view.tcy - view.cy) * k; view.z += (view.tz - view.z) * k; if (Math.abs(view.z - view.tz) < 0.003 && Math.abs(view.cx - view.tcx) < 0.2 && Math.abs(view.cy - view.tcy) < 0.2) { view.z = view.tz; view.cx = view.tcx; view.cy = view.tcy; view.animating = false; } clampCam(); }
+  const active = isActive(); const F = audio.F || idleF;
+  if (audio.F) audio.F.update(now, dt, active);
+  brain.update(dt, F, active, now);
+  render(now, dt, F, active);
+  updateReadout(now, F, active);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__viz = { audio, brain, regions, paths, view, D, startDemo, stopSource, flyTo, fns: { drawDots, drawPathways, drawConnections, drawDetails, drawSkull, drawLabels, drawBackground, beginGlow, endGlow, render } };
+})();
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>

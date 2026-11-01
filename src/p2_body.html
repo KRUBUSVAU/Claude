@@ -1,0 +1,59 @@
+<canvas id="stage" aria-label="Brain visualizer canvas"></canvas>
+<div class="ui">
+  <header class="brand">
+    <h1>Neural Resonance</h1>
+    <p class="status" id="status">Resting state. Pick a sound source to begin.</p>
+  </header>
+
+  <aside class="readout panel" id="readout">
+    <button class="readout-head" id="readoutToggle" aria-expanded="true" aria-controls="readoutBody">Activity <span class="chev" aria-hidden="true"></span></button>
+    <div class="readout-body" id="readoutBody">
+      <dl class="facts">
+        <div><dt>Tempo</dt><dd id="fTempo">—</dd></div>
+        <div><dt>Key</dt><dd id="fKey">—</dd></div>
+        <div><dt>Chord</dt><dd id="fChord">—</dd></div>
+        <div><dt>Pitch</dt><dd id="fPitch">—</dd></div>
+        <div><dt>Level</dt><dd><span class="bar"><i id="fLevel"></i></span></dd></div>
+      </dl>
+      <h2>Neuromodulators</h2>
+      <div class="meters">
+        <div class="meter"><span>Dopamine</span><span class="bar da"><i id="mDa"></i></span><em id="mDaWhy"></em></div>
+        <div class="meter"><span>Norepinephrine</span><span class="bar ne"><i id="mNe"></i></span><em id="mNeWhy"></em></div>
+        <div class="meter"><span>Serotonin</span><span class="bar ht"><i id="mHt"></i></span><em id="mHtWhy"></em></div>
+      </div>
+      <h2>Memory</h2>
+      <dl class="facts">
+        <div><dt>Melodies recognised</dt><dd id="fRepMel">0</dd></div>
+        <div><dt>Progressions</dt><dd id="fRepChord">0</dd></div>
+        <div><dt>Samples</dt><dd id="fRepSample">0</dd></div>
+        <div><dt>Synapses formed</dt><dd id="fConn">0</dd></div>
+      </dl>
+      <h2>Regions</h2>
+      <ul class="legend" id="legend"></ul>
+    </div>
+  </aside>
+
+  <div class="dock">
+    <div class="row">
+      <button class="btn" id="btnMic">Microphone</button>
+      <label class="btn" for="fileIn" id="lblFile">Upload track</label>
+      <input id="fileIn" type="file" accept="audio/*" hidden>
+      <button class="btn" id="btnDemo">Demo loop</button>
+      <button class="btn quiet" id="btnStop" hidden>Stop</button>
+    </div>
+    <div class="transport panel" id="transport" hidden>
+      <button class="btn icon" id="btnPlay" aria-label="Pause">❚❚</button>
+      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+      <span class="t" id="time">0:00 / 0:00</span>
+      <span class="name" id="trackName"></span>
+    </div>
+    <div class="row">
+      <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>
+      <button class="btn icon" id="zOut" aria-label="Zoom out">−</button>
+      <button class="btn quiet" id="zReset">Reset view</button>
+      <span class="hint">Scroll or pinch to zoom in on receptors. Drag to pan. Double-click a region to visit it.</span>
+    </div>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" hidden></div>
