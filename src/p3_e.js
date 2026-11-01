@@ -263,7 +263,7 @@ function hideTip() { tip.hidden = true; tipRegion = null; }
 const VIEWS = { left: [-Math.PI / 2, 0.05], right: [Math.PI / 2, 0.05], front: [0, 0.05], top: [-0.001, 1.44], back: [Math.PI, 0.05] };
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { const v = VIEWS[b.dataset.view]; if (v) flyTo([0, -14, 4], view.homeDist, v[0], v[1]); else goHome(); }));
 $('btnSpin').addEventListener('click', () => { view.autoSpin = !view.autoSpin; $('btnSpin').setAttribute('aria-pressed', String(view.autoSpin)); view.lastInteract = -100; });
-try { const b = parseFloat(localStorage.getItem('nr.brightness')); if (!isNaN(b)) view.exposure = clamp(b, 0.2, 1.6); } catch (err) { }
+try { const b = parseFloat(localStorage.getItem('nr.brightness')); if (!isNaN(b)) view.exposure = clamp(b, 0.3, 2.6); } catch (err) { }
 $('brightness').value = view.exposure;
 $('brightness').addEventListener('input', ev => { view.exposure = parseFloat(ev.target.value); try { localStorage.setItem('nr.brightness', String(view.exposure)); } catch (err) { } });
 $('btnSkull').addEventListener('click', () => { view.showSkull = !view.showSkull; $('btnSkull').setAttribute('aria-pressed', String(view.showSkull)); });

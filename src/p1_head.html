@@ -102,7 +102,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
 .btn[aria-pressed=true]{border-color:var(--accent);color:#fff}
 .vol{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--fg-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .vol input{width:90px}
-.bright{margin-left:0}
+.bright{margin-left:0;width:100%}
+.bright input{width:100%;flex:1}
+.bright-row{padding:7px 12px;width:min(100%,24rem)}
 .count{display:inline-block;min-width:1.4em;padding:1px 5px;border-radius:9px;background:rgba(150,190,255,.14);color:var(--fg);font-size:10px;text-align:center;letter-spacing:0}
 .library{width:min(100%,34rem);max-height:min(42vh,22rem);display:flex;flex-direction:column;overflow:hidden}
 .library header{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line)}

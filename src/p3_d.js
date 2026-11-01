@@ -60,7 +60,7 @@ function flyTo(target, dist, yaw, pitch) { view.touched = true; view.lastInterac
 function goHome() { flyTo(HOME.target, view.homeDist, HOME.yaw, HOME.pitch); }
 function flyToRegion(r, hitCenter) { const c = hitCenter || (r.cl || r.c); flyTo(c, r.small ? 30 : Math.min(60, Math.max(34, r.r * 1.1))); }
 const zf = () => clamp(Math.pow(view.dist / 330, 0.8), 0.08, 1.15);
-view.exposure = 0.8;
+view.exposure = 1.0;
 
 // --- colour helpers for the overlay
 const colorCache = new Map();
@@ -98,7 +98,7 @@ void main(){
   float lig=clamp((B.y-22.0+tone*9.0+act*12.0)/100.0,0.0,0.72);
   vec3 rgb=hsl2rgb(vec3(mod(hue,360.0)/360.0,sat,lig));
   vec3 pos=aPos+uDrift*(0.3+a)*vec3(sin(uTime*0.6+ph*7.0),cos(uTime*0.45+ph*5.0),sin(uTime*0.5+ph*3.0));
-  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0)*uExposure;
+  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0)*uExposure*mix(1.0,1.9,smoothstep(120.0,420.0,w));
   if(uSoft>0.5){float ba=(act-0.85)*0.25;if(ba<=0.0){gl_PointSize=0.0;vCol=vec4(0.0);return;}vCol=vec4(rgb,ba*fade);gl_PointSize=min(uMaxPt,2.0*aSize*0.5*1.8*uGz*uPointScale/w);}
   else{vCol=vec4(rgb,(0.3+0.3*act)*fade);gl_PointSize=min(uMaxPt,max(1.2,2.0*aSize*0.36*uZf*uPointScale/w));}
 }`;

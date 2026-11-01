@@ -102,7 +102,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
 .btn[aria-pressed=true]{border-color:var(--accent);color:#fff}
 .vol{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--fg-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .vol input{width:90px}
-.bright{margin-left:0}
+.bright{margin-left:0;width:100%}
+.bright input{width:100%;flex:1}
+.bright-row{padding:7px 12px;width:min(100%,24rem)}
 .count{display:inline-block;min-width:1.4em;padding:1px 5px;border-radius:9px;background:rgba(150,190,255,.14);color:var(--fg);font-size:10px;text-align:center;letter-spacing:0}
 .library{width:min(100%,34rem);max-height:min(42vh,22rem);display:flex;flex-direction:column;overflow:hidden}
 .library header{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line)}
@@ -205,6 +207,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
         <label class="vol"><span>Vol</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume"></label>
       </div>
     </div>
+    <div class="row bright-row panel">
+      <label class="vol bright"><span>Brightness</span><input id="brightness" type="range" min="0.3" max="2.6" step="0.01" value="1" aria-label="Brightness"></label>
+    </div>
     <div class="row">
       <button class="btn icon" id="zIn" aria-label="Zoom in">+</button>
       <button class="btn icon" id="zOut" aria-label="Zoom out">−</button>
@@ -214,7 +219,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font:12.5px/1.45 var(--font-m
       <button class="btn quiet tiny" data-view="top">Top</button>
       <button class="btn quiet tiny" id="btnSpin" aria-pressed="true" title="Slow auto-rotation when idle (S)">Spin</button>
       <button class="btn quiet tiny" id="btnSkull" aria-pressed="true">Skull</button>
-      <label class="vol bright"><span>Brightness</span><input id="brightness" type="range" min="0.2" max="1.6" step="0.01" value="0.7" aria-label="Brightness"></label>
+
       <span class="hint">Drag to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. Double-click a region to fly in; get close to watch its receptors.</span>
     </div>
   </div>
@@ -736,7 +741,7 @@ function flyTo(target, dist, yaw, pitch) { view.touched = true; view.lastInterac
 function goHome() { flyTo(HOME.target, view.homeDist, HOME.yaw, HOME.pitch); }
 function flyToRegion(r, hitCenter) { const c = hitCenter || (r.cl || r.c); flyTo(c, r.small ? 30 : Math.min(60, Math.max(34, r.r * 1.1))); }
 const zf = () => clamp(Math.pow(view.dist / 330, 0.8), 0.08, 1.15);
-view.exposure = 0.8;
+view.exposure = 1.0;
 
 // --- colour helpers for the overlay
 const colorCache = new Map();
@@ -774,7 +779,7 @@ void main(){
   float lig=clamp((B.y-22.0+tone*9.0+act*12.0)/100.0,0.0,0.72);
   vec3 rgb=hsl2rgb(vec3(mod(hue,360.0)/360.0,sat,lig));
   vec3 pos=aPos+uDrift*(0.3+a)*vec3(sin(uTime*0.6+ph*7.0),cos(uTime*0.45+ph*5.0),sin(uTime*0.5+ph*3.0));
-  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0)*uExposure;
+  vec4 clip=uVP*vec4(pos,1.0);gl_Position=clip;float w=max(clip.w,1.0);float fade=clamp(1.0-(w-120.0)/700.0,0.35,1.0)*uExposure*mix(1.0,1.9,smoothstep(120.0,420.0,w));
   if(uSoft>0.5){float ba=(act-0.85)*0.25;if(ba<=0.0){gl_PointSize=0.0;vCol=vec4(0.0);return;}vCol=vec4(rgb,ba*fade);gl_PointSize=min(uMaxPt,2.0*aSize*0.5*1.8*uGz*uPointScale/w);}
   else{vCol=vec4(rgb,(0.3+0.3*act)*fade);gl_PointSize=min(uMaxPt,max(1.2,2.0*aSize*0.36*uZf*uPointScale/w));}
 }`;
@@ -1214,7 +1219,7 @@ function hideTip() { tip.hidden = true; tipRegion = null; }
 const VIEWS = { left: [-Math.PI / 2, 0.05], right: [Math.PI / 2, 0.05], front: [0, 0.05], top: [-0.001, 1.44], back: [Math.PI, 0.05] };
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { const v = VIEWS[b.dataset.view]; if (v) flyTo([0, -14, 4], view.homeDist, v[0], v[1]); else goHome(); }));
 $('btnSpin').addEventListener('click', () => { view.autoSpin = !view.autoSpin; $('btnSpin').setAttribute('aria-pressed', String(view.autoSpin)); view.lastInteract = -100; });
-try { const b = parseFloat(localStorage.getItem('nr.brightness')); if (!isNaN(b)) view.exposure = clamp(b, 0.2, 1.6); } catch (err) { }
+try { const b = parseFloat(localStorage.getItem('nr.brightness')); if (!isNaN(b)) view.exposure = clamp(b, 0.3, 2.6); } catch (err) { }
 $('brightness').value = view.exposure;
 $('brightness').addEventListener('input', ev => { view.exposure = parseFloat(ev.target.value); try { localStorage.setItem('nr.brightness', String(view.exposure)); } catch (err) { } });
 $('btnSkull').addEventListener('click', () => { view.showSkull = !view.showSkull; $('btnSkull').setAttribute('aria-pressed', String(view.showSkull)); });
